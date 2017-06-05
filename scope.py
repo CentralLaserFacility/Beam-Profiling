@@ -5,7 +5,7 @@ import time
 class Scope(object):
     """ Scope instrument """
 
-    def __init__(self, address):
+    def __init__(self, address, channel):
 
         self.wfm = []
         self.fileCnt = 0
@@ -18,7 +18,9 @@ class Scope(object):
         self.pulse = []
 
         # communication settings
-        self.rm = visa.ResourceManager()
+        #self.rm = visa.ResourceManager("")  # use when using native NI library
+        self.rm = visa.ResourceManager("@py")  # use when using python reimplentation of VISA
+
         self.c = self.rm.open_resource(address)
         self.c.read_termination = '\n'
         self.name = self.get('*IDN?')
@@ -27,7 +29,7 @@ class Scope(object):
 
         # channel settings
         # vertical scale channel 2: 0.02
-        self.channelName = 'CHAN1'
+        self.channelName = channel
         self.verticalScale = '0.04'
         self.skewTime = '2.325E-008'                             # skew offset 23.25ns
         self.set(self.channelName + ':SCAL' ,self.verticalScale)
