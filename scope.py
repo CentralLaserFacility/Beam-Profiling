@@ -27,7 +27,6 @@ class Scope(object):
         self.set('FORMAT:DATA', 'REAL,32')                  # get the samples as float
 
         # channel settings
-        # vertical scale channel 2: 0.02
         self.channelName = channel
         self.verticalScale = '0.04'
         self.skewTime = '2.325E-008'                             # skew offset 23.25ns
@@ -67,6 +66,8 @@ class Scope(object):
 
     def setPulse(self, startPulseTime, stopPulseTime):        # start and stop in s
 
+        print "setting pulse time"
+
         self.c.write('RUNS')
         self.wait()
         self.wfm = self.c.query_binary_values(self.dataQueryCmd, datatype='f')
@@ -75,7 +76,7 @@ class Scope(object):
 
         data = self.c.query(self.channelName+':WAV1:DATA:HEAD?')
         self.wait()
-        print 'setpulse' + data
+
         xStart = data.split(',')[0]
         xStart = float(xStart)
 
@@ -104,10 +105,17 @@ class Scope(object):
 
 
     def fetch(self):
+
+        print "fetching data..."
+    
         self.c.write('RUNS')
         self.wait()
 
+        print "waiting"
+
         self.wfm = self.c.query_binary_values(self.dataQueryCmd, datatype='f')
+
+        print "finish query"
 
         self.pulse = self.wfm[self.startSample:self.stopSample]
         self.wait()
@@ -115,7 +123,7 @@ class Scope(object):
 
 
     def saveWfm(self):
-        filename = 'data/wfm' + str(self.fileCnt)
+        filename = './data/wfm' + str(self.fileCnt)
         with open(filename, 'w') as f:
             for n in self.wfm:
                 f.write(str(n) + '\n')
@@ -123,13 +131,16 @@ class Scope(object):
         self.fileCnt += 1
 
     def savePulse(self):
-        filename = 'data/pulse' + str(self.fileCnt)
+        filename = './data/pulse' + str(self.fileCnt)
         with open(filename, 'w') as f:
             for n in self.pulse:
                 f.write(str(n) + '\n')
 
         self.fileCnt += 1
 
+
+    def getPulse(self):
+        return self.pulse
 
     def close(self):
         self.c.close()
@@ -142,7 +153,7 @@ import os
 if __name__ == '__main__':
 
     try:
-        scope = Scope('TCPIP::192.168.41.52::5025::SOCKET', 'chan1')
+        scope = Scope('TCPIP::192.168.41.51::5025::SOCKET', 'chan1')
         scope.setPulse(2e-9, 1.2e-8)
         while True:
             scope.fetch()
