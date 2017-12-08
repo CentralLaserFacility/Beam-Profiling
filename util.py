@@ -50,6 +50,8 @@ def save_to_txt(points, filename):
         f.write("\n")
     f.close()
 
+def error(one, two):
+    return np.sqrt(one.dot(two)/one.size)
 
 def plotstart():
     plt.ion()

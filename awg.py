@@ -1,6 +1,7 @@
 import epics
 import time
 import math
+import numpy as np
 
 class  Awg(object):
 
@@ -12,8 +13,11 @@ class  Awg(object):
 
     def _read_current_shape(self):
         print "read current shape..."
+        epics.caput(self.prefix + ':ReadWaveform.PROC', 1)
+        time.sleep(2)
         self.wf = epics.caget(self.prefix + ':ReadWaveform_do')
         self.dac = epics.caget(self.prefix + ':DAC')
+        self.wf = np.clip(self.wf,0,self.dac)
         self.nwf = self.wf/float(self.dac)
 
     def get_raw_shape(self):
@@ -39,7 +43,12 @@ class  Awg(object):
 
         if(incr >= self.max_incr):
             print "Error: increment too big: %.1f percent of DAC - max is %.1f" % (incr, self.max_incr)
-            val = (self.max_incr/100.0) * self.dac + self.wf[i]
+
+            if (val - self.wf[i] < 0):
+                val = self.wf[i] - (self.max_incr/100.0) * self.dac
+            else: 
+                val = self.wf[i] + (self.max_incr/100.0) * self.dac
+
             incr = 100.0 * math.fabs(val - self.wf[i])/float(self.dac)
 
         print "modifying point %d from %f to %f - %.1f percent of DAC" % (i, self.wf[i], val, incr)
@@ -62,16 +71,27 @@ class  Awg(object):
             return
 
         for i, point in enumerate(points):
-           val = int(point * self.dac)   
+           val = int(point * self.dac) 
+           if val > self.dac: continue
            self.modify_point(i, val)
+           #print "simulation - point "+ str(i) + " - value " + str(val) 
            time.sleep(1)
+           #raw_input("continue")
 
 
 if __name__ == '__main__':
 
     awg = Awg('DIP-AWG', 82)
-    print awg.get_normalised_shape()
-    awg.save_normalised_shape("./awg3.dat")
+    raw = awg.get_raw_shape()
+    data = awg.get_normalised_shape()
+    data = data[:82]
+
+    import util
+    util.plotstart()
+    util.plot(raw)
+    util.plotend()
+
+    #awg.save_normalised_shape("./awg_2017_09_21.dat")
 
     # multiply the first 2 points by 1.2
     #awg.multiply_point_by_point(range(0,20), 1.2)
