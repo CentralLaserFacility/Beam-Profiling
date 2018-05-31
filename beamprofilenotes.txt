@@ -1,0 +1,10 @@
+
+
+save file at each iteration 
+gain
+max iterations
+tolerance
+max % change
+go
+
+

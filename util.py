@@ -69,10 +69,6 @@ def plot(data, point='*', linestyle='-', x=None):
 def plotx(x, data, point='*', linestyle='-'):    
     plt.plot(x,data, point, linestyle=linestyle)
 
-def plotend():
-    plt.ioff()
-    plt.show()
-
 def plotpause(data, clear=True):
     if clear: plotclear()
     plot(data)
