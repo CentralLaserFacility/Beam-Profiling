@@ -18,7 +18,7 @@ class Curve:
         self._curve = np.zeros(self._num_points)
         self._name = name
         
-        if curve_array.any():
+        if np.alen(curve_array) > 0:
             self._curve = curve_array
             self._num_points = np.alen(curve_array)
         

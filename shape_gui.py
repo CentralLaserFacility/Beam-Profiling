@@ -53,16 +53,18 @@ class SetupFrame(wx.Frame):
         self.library_preview_button = wx.Button(self, wx.ID_ANY, "Preview")
         self.scope_pv_text_ctrl = wx.TextCtrl(self, wx.ID_ANY, "Replace with pv widget from pyepics")
         self.grab_trace_button = wx.Button(self, wx.ID_ANY, "Grab")
+        self.average_text_ctrl = wx.TextCtrl(self, wx.ID_ANY, "5")
+        self.sizer_6_staticbox = wx.StaticBox(self, wx.ID_ANY, "Average")
         self.save_trace_button = wx.BitmapButton(self, wx.ID_ANY, wx.Bitmap("/home/swdev/repos/beamprofiling/Save.png", wx.BITMAP_TYPE_ANY))
         self.sizer_2_staticbox = wx.StaticBox(self, wx.ID_ANY, "Scope PV")
         self.target_source_radio_box = wx.RadioBox(self, wx.ID_ANY, "Source for target", choices=["File", "Library"], majorDimension=2, style=wx.RA_SPECIFY_COLS)
         self.points_label = wx.StaticText(self, wx.ID_ANY, "# Points in trace", style=wx.ALIGN_CENTER_HORIZONTAL)
         self.points_text_ctrl = wx.TextCtrl(self, wx.ID_ANY, "82")
-        self.gain_txt_ctrl = wx.TextCtrl(self, wx.ID_ANY, "0.3")
+        self.gain_txt_ctrl = wx.TextCtrl(self, wx.ID_ANY, "0.2")
         self.gain_sizer_staticbox = wx.StaticBox(self, wx.ID_ANY, "Gain")
-        self.iterations_txt_ctrl = wx.TextCtrl(self, wx.ID_ANY, "10")
+        self.iterations_txt_ctrl = wx.TextCtrl(self, wx.ID_ANY, "30")
         self.iterations_sizer_staticbox = wx.StaticBox(self, wx.ID_ANY, "Max iterations")
-        self.tolerance_txt_ctrl = wx.TextCtrl(self, wx.ID_ANY, ".5")
+        self.tolerance_txt_ctrl = wx.TextCtrl(self, wx.ID_ANY, ".01")
         self.tolerance_sizer_staticbox = wx.StaticBox(self, wx.ID_ANY, "Tolerance")
         self.max_change_txt_ctrl = wx.TextCtrl(self, wx.ID_ANY, "25")
         self.max_change_sizer_staticbox = wx.StaticBox(self, wx.ID_ANY, "Max % change")
@@ -146,6 +148,8 @@ class SetupFrame(wx.Frame):
         sizer_4 = wx.BoxSizer(wx.VERTICAL)
         self.sizer_2_staticbox.Lower()
         sizer_2 = wx.StaticBoxSizer(self.sizer_2_staticbox, wx.HORIZONTAL)
+        self.sizer_6_staticbox.Lower()
+        sizer_6 = wx.StaticBoxSizer(self.sizer_6_staticbox, wx.VERTICAL)
         library_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.library_slice_sizer_staticbox.Lower()
         library_slice_sizer = wx.StaticBoxSizer(self.library_slice_sizer_staticbox, wx.HORIZONTAL)
@@ -196,6 +200,8 @@ class SetupFrame(wx.Frame):
         main_sizer.Add((500, 20), 0, 0, 0)
         sizer_2.Add(self.scope_pv_text_ctrl, 3, wx.EXPAND, 0)
         sizer_2.Add(self.grab_trace_button, 1, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
+        sizer_6.Add(self.average_text_ctrl, 1, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
+        sizer_2.Add(sizer_6, 1, 0, 0)
         sizer_2.Add(self.save_trace_button, 1, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
         sizer_1.Add(sizer_2, 3, 0, 0)
         sizer_3.Add((50, 20), 0, 0, 0)
@@ -245,10 +251,26 @@ class SetupFrame(wx.Frame):
 
     def on_preview(self, event):  # wxGlade: SetupFrame.<event_handler>
         
+        if event.GetEventObject().GetName() == 'bkg_prv':
+            reason = 'bkg'
+            curve = self.cBackground
+        elif event.GetEventObject().GetName() == 'tgt_prv':
+            reason = 'tgt_file'
+            curve = self.cTargetFile
+        elif event.GetEventObject().GetName() == 'lby_prv':
+            reason = 'library'
+            curve = self.cLibrary
+
+        self.load(reason)
+
+        curve.plot_all()
+
+    def load(self, reason):
+
         num_points = int(self.points_text_ctrl.GetValue())
         trim_methods = ['resample', 'truncate', 'off']
 
-        if event.GetEventObject().GetName() == 'bkg_prv':
+        if reason == 'bkg':
             pathname = self.bkg_path_text_ctrl.GetValue()
             trim_method = trim_methods[int(self.bkg_scaling_radio_box.GetSelection())]
             bkg_curve = Curve(curve_array=np.zeros(num_points))
@@ -257,7 +279,7 @@ class SetupFrame(wx.Frame):
             curve = self.cBackground
             clip_and_norm = False
             
-        elif event.GetEventObject().GetName() == 'tgt_prv':
+        elif reason == 'tgt_file':
             pathname = self.target_path_text_ctrl.GetValue()
             trim_method = trim_methods[int(self.target_scaling_radio_box.GetSelection())]
             bkg_curve = Curve(curve_array=np.zeros(num_points))
@@ -266,13 +288,13 @@ class SetupFrame(wx.Frame):
             curve = self.cTargetFile
             clip_and_norm = True
 
-        elif event.GetEventObject().GetName() == 'lby_prv':
+        elif reason == 'library':
             return
         
-        self.preview_curve(curve, clip_and_norm, num_points, pathname, trim_method, bkg_curve, start, length)
+        self.open_and_process(curve, clip_and_norm, num_points, pathname, trim_method, bkg_curve, start, length)
 
 
-    def preview_curve(self, curve, clip_and_norm, num_pts, pathname, trm_meth, bkg_curve, start, length):
+    def open_and_process(self, curve, clip_and_norm, num_pts, pathname, trm_meth, bkg_curve, start, length):
         
         curve.load(num_points=num_pts, trim_method = trm_meth, data = str(pathname))
 
@@ -281,8 +303,6 @@ class SetupFrame(wx.Frame):
             curve.process('clip','norm', bkg = bkg_curve, crop = (start, length), resample = num_pts)
         else:
             curve.process(bkg = bkg_curve, crop = (start, length), resample = num_pts)
-        
-        curve.plot_all()
         return
 
 
@@ -298,10 +318,16 @@ class SetupFrame(wx.Frame):
         num_points = int(self.points_text_ctrl.GetValue())
         start_curve = Curve(curve_array = 0.5*np.ones(num_points))
         
+
+        # Reload curves
+        self.load('bkg')
         if self.target_source_radio_box.GetSelection() == 0:
             target_curve = self.cTargetFile
+            self.load('tgt_file')
         else:
             target_curve = self.cLibrary
+            self.load('library')
+
 
         iterations = int(self.iterations_txt_ctrl.GetValue())
         tolerance = float(self.tolerance_txt_ctrl.GetValue())
@@ -332,7 +358,8 @@ class LoopFrame(wx.Frame):
         self.canvas = FigCanvas(self, -1, self.fig)
         
         self.vbox = wx.BoxSizer(wx.VERTICAL)
-        self.vbox.Add(self.canvas, 1, flag=wx.LEFT | wx.TOP | wx.GROW)
+        self.vbox.Add(self.canvas, 10, flag=wx.LEFT | wx.TOP | wx.GROW)
+
         
         self.SetSizer(self.vbox)
         self.vbox.Fit(self)
@@ -341,64 +368,101 @@ class LoopFrame(wx.Frame):
 
         self.gain = gain
         self.iterations = iterations
+        self.i = 0 #Store the loop count for stopping/restarting loop
         self.tolerance = tolerance
         self.max_percent_change = max_percent_change
 
-        self.Bind(wx.EVT_CLOSE, self.closeWindow)
-
+        self.user_end = False
+        self.cid = self.canvas.mpl_connect('button_press_event', self.on_click)
+        self.cid = self.canvas.mpl_connect('key_press_event', self.on_key)
+       
+        self.Bind(wx.EVT_CLOSE, self.close_window)
+        
         self.Show()
         self.run_loop()
 
-    def closeWindow(self, event):
+    def on_click(self,event):
+        # Allows mouse click to start/stop the loop
+        self.user_end =  not self.user_end
+        if not self.user_end:
+            self.run_loop()  
+
+    def on_key(self,event):
+        if event.key == "ctrl+r":
+            self.reread_parms()
+
+    def reread_parms(self):
+        self.i=0
+        self.gain = float(self.parent.gain_txt_ctrl.GetValue())
+        num_points = int(self.parent.points_text_ctrl.GetValue())
+        start_curve = Curve(curve_array = 0.5*np.ones(num_points))
+        
+        # Reload curves
+        self.parent.load('bkg')
+        if self.parent.target_source_radio_box.GetSelection() == 0:
+            target_curve = self.parent.cTargetFile
+            self.parent.load('tgt_file')
+        else:
+            target_curve = self.parent.cLibrary
+            self.parent.load('library')
+
+        self.iterations = int(self.parent.iterations_txt_ctrl.GetValue())
+        self.tolerance = float(self.parent.tolerance_txt_ctrl.GetValue())
+        self.max_percent_change = int(self.parent.max_change_txt_ctrl.GetValue())
+        self.current=start_curve.get_processed()
+        self.correction_factor = np.zeros(np.alen(self.current))
+        self.target=target_curve.get_processed()
+        self.target_plot_data.set_ydata(self.target)
+
+
+
+    def close_window(self, event):
         self.Destroy()
 
 
     def init_plot(self):
         self.dpi = 100
         self.fig = plt.Figure((10.0, 5.0), dpi=self.dpi)
-
         self.curve_axis = self.fig.add_subplot(121)
         self.correction_axis = self.fig.add_subplot(122)
-
         pylab.setp(self.curve_axis.get_xticklabels(), fontsize=10)
         pylab.setp(self.curve_axis.get_yticklabels(), fontsize=10)
         pylab.setp(self.correction_axis.get_xticklabels(), fontsize=10)
         pylab.setp(self.correction_axis.get_yticklabels(), fontsize=10)
         pylab.setp(self.correction_axis, title = "Applied Correction")
         pylab.setp(self.curve_axis, title = "Output")
-
         self.corr_plot_data = self.correction_axis.plot(self.correction_factor, label = 'Correction')[0]
         self.target_plot_data = self.curve_axis.plot(self.target, label = 'Target')[0]
         self.curve_plot_data = self.curve_axis.plot(self.current, label = 'Current')[0]
-
         self.curve_axis.legend()
+        self.i_label = self.curve_axis.text(0.05,0.95, "Iteration: ",transform=self.curve_axis.transAxes)
+        self.rms_label = self.curve_axis.text(0.05,0.9, "RMS: ",transform=self.curve_axis.transAxes)
 
+    def rms_error(self):
+        return np.sqrt(np.mean(np.square(self.target - self.current)))
 
-    def draw_plots(self):
+    def draw_plots(self, rms = 0, i =0):
         self.corr_plot_data.set_ydata(self.correction_factor)
         self.curve_plot_data.set_ydata(self.current)
-
         self.curve_axis.set_ybound(lower=-0.1, upper=1.1)
         self.correction_axis.set_ybound(lower=-0.1, upper=1.1)
-        self.canvas.draw()
-        
+        self.i_label.set_text("Iteration: %d" % i)
+        self.rms_label.set_text("RMS: %.3f" % rms)
+        self.canvas.draw()        
+
     def run_loop(self):
-        i=0
         iterations = self.iterations
         gain = self.gain
+        self.draw_plots(self.rms_error(),self.i)
 
-
-        while i < iterations:
-
-             self.correction_factor = np.nan_to_num(self.target/self.current)
-             self.correction_factor = (self.correction_factor - 1) * gain + 1
-             self.current = self.current * self.correction_factor
-
-             self.draw_plots()
-             time.sleep(1)
-
-             i+=1
-
+        while self.i<iterations and self.rms_error()>=self.tolerance and not self.user_end:           
+            self.correction_factor = np.nan_to_num(self.target/self.current)
+            self.correction_factor = (self.correction_factor - 1) * gain + 1
+            self.current = self.current * self.correction_factor
+            self.i+=1
+            self.draw_plots(self.rms_error(),self.i)
+            time.sleep(1)
+            wx.SafeYield(self) # Needed to allow processing events to stop loop
             
 
 if __name__ == "__main__":  
