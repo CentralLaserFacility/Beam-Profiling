@@ -4,7 +4,6 @@ import wx
 
 
 class Curve:
-
     def __init__(self, curve_array=np.array([]), name = "unnamed"):
         """
         Creates a Curve object. The intialiser optionally takes the argument 
@@ -282,6 +281,159 @@ class Curve:
         plt.clf()
         plt.draw()
 
-    
-    
         
+class BkgCurve(Curve):
+    '''The same a the Curve class, but modify the process methods as we don't want 
+        to be able to subtract background from a background curve'''
+
+    def __init__(self, curve_array=np.array([]), name = "unnamed"):
+        Curve.__init__(self, curve_array, name)
+
+    def process(self, *args, **kwargs):
+        """
+        process('clip','norm','bkg' = curve_instance, 'crop' = (start_point, length), 'resample' = new_size)
+
+        Process the curve to prepare for the feedback loop. Each this is run it starts from the 
+        raw curve data, so all desired processing parms must be specified each time.
+
+        Parameters
+        ----------
+
+        args:
+            "clip", optional:
+                Clip the negative values of the curve, replacing with zeros
+            "norm", optional
+                Normalise the values to 1
+        
+        kwargs:
+            "bkg", optional: Instance of Curve object
+                The Curve containing the background trace to be used
+            "crop", optional: tuple of ints
+                Slice the trace, starting at start_point for length pixels 
+            "resample", optional: int
+                Resample the curve to new_size
+
+        Returns
+        -------
+        Results in a processed curve to be accessed by the get_processed() method
+
+        """
+
+        # Reset the curve first
+        self._processed = self._curve
+
+        supported_args = ["bkg", "crop", "clip", "norm","resample"]
+
+        # Since the order in which this is done is vital, and we can't rely
+        # on preserving in the order of **kwargs before python 3.6, go through
+        # and set flags first then deal with them in the right order. 
+
+        do_bkg = do_crop = do_resample = do_clip = do_norm = False
+
+        for arg in args:
+            if arg == "clip":
+                do_clip = True
+            if arg == "norm":
+                do_norm = True
+            if arg not in supported_args:
+                print("Unrecognised argument: %s" % arg)
+
+        for key, value in kwargs.iteritems():
+            if key == "bkg":
+                print "Ignoring keyword: bkg. Background curves don't support background subtraction"
+            if key == "crop":
+                do_crop = True
+                val_crop = value
+            if key == "resample":
+                do_resample = True
+                val_resample = value
+            if key not in supported_args:
+                print("Unrecognised keyword: %s" % key)
+
+        if do_crop:
+            self._processed = self._processed[val_crop[0]:val_crop[0+1]]
+        if do_resample:
+            self._processed = self._resample(self._processed, val_resample)           
+        if do_clip:
+            self._processed = self._clip_neg(self._processed)
+        if do_norm:
+            self._processed = self._normalise(self._processed)
+
+
+class TargetCurve(Curve):
+    '''The same a the Curve class, but modify the process methods as we don't want 
+        to be able to subtract background from a target curve'''
+
+    def __init__(self, curve_array=np.array([]), name = "unnamed"):
+        Curve.__init__(self, curve_array, name)
+
+    def process(self, *args, **kwargs):
+        """
+        process('clip','norm','bkg' = curve_instance, 'crop' = (start_point, length), 'resample' = new_size)
+
+        Process the curve to prepare for the feedback loop. Each this is run it starts from the 
+        raw curve data, so all desired processing parms must be specified each time.
+
+        Parameters
+        ----------
+
+        args:
+            "clip", optional:
+                Clip the negative values of the curve, replacing with zeros
+            "norm", optional
+                Normalise the values to 1
+        
+        kwargs:
+            "bkg", optional: Instance of Curve object
+                The Curve containing the background trace to be used
+            "crop", optional: tuple of ints
+                Slice the trace, starting at start_point for length pixels 
+            "resample", optional: int
+                Resample the curve to new_size
+
+        Returns
+        -------
+        Results in a processed curve to be accessed by the get_processed() method
+
+        """
+
+        # Reset the curve first
+        self._processed = self._curve
+
+        supported_args = ["bkg", "crop", "clip", "norm","resample"]
+
+        # Since the order in which this is done is vital, and we can't rely
+        # on preserving in the order of **kwargs before python 3.6, go through
+        # and set flags first then deal with them in the right order. 
+
+        do_bkg = do_crop = do_resample = do_clip = do_norm = False
+
+        for arg in args:
+            if arg == "clip":
+                do_clip = True
+            if arg == "norm":
+                do_norm = True
+            if arg not in supported_args:
+                print("Unrecognised argument: %s" % arg)
+
+        for key, value in kwargs.iteritems():
+            if key == "bkg":
+                print "Ignoring keyword: bkg. Target curves don't support background subtraction"
+            if key == "crop":
+                do_crop = True
+                val_crop = value
+            if key == "resample":
+                do_resample = True
+                val_resample = value
+            if key not in supported_args:
+                print("Unrecognised keyword: %s" % key)
+
+        if do_crop:
+            self._processed = self._processed[val_crop[0]:val_crop[0+1]]
+        if do_resample:
+            self._processed = self._resample(self._processed, val_resample)           
+        if do_clip:
+            self._processed = self._clip_neg(self._processed)
+        if do_norm:
+            self._processed = self._normalise(self._processed)   
+    
