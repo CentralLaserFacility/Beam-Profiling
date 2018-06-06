@@ -6,6 +6,7 @@
 # Stuff remaining to be done:
 #   - Validate entries for all the user defined numbers in the GUI
 #   - Warn the user if no background file has been defined
+#   - Add config files so that fields are popluated with previous values and setups can be saved/loaded
 #########################################################################################
 
 #########################################################################################
@@ -13,9 +14,6 @@
 SCOPE_WAIT_TIME = 1 # Seconds to wait for a caget from the scope to return
 SIMULATION = True
 #########################################################################################
-
-
-
 
 # Imports from installed packages
 import wx
@@ -46,7 +44,7 @@ class SetupFrame(wx.Frame):
         wx.Frame.__init__(self, *args, **kwds)
         self.bkg_choice_panel = wx.Panel(self, wx.ID_ANY)
         self.bkg_path_text_ctrl = wx.TextCtrl(self.bkg_choice_panel, wx.ID_ANY, "Path to background file")
-        self.bkg_browse_button = wx.BitmapButton(self.bkg_choice_panel, wx.ID_ANY, wx.Bitmap("/home/swdev/repos/beamprofiling/Open folder.png", wx.BITMAP_TYPE_ANY))
+        self.bkg_browse_button = wx.BitmapButton(self.bkg_choice_panel, wx.ID_ANY, wx.Bitmap("./gui_files/Open folder.png", wx.BITMAP_TYPE_ANY))
         self.bkgfile_sizer_staticbox = wx.StaticBox(self.bkg_choice_panel, wx.ID_ANY, "Background file")
         self.bkg_scaling_radio_box = wx.RadioBox(self, wx.ID_ANY, "Scaling", choices=["Resample", "Trim", "None"], majorDimension=3, style=wx.RA_SPECIFY_COLS)
         self.bkg_start_text_ctrl = wx.TextCtrl(self, wx.ID_ANY, "0")
@@ -55,7 +53,7 @@ class SetupFrame(wx.Frame):
         self.bkg_preview_button = wx.Button(self, wx.ID_ANY, "Preview")
         self.target_choice_panel = wx.Panel(self, wx.ID_ANY)
         self.target_path_text_ctrl = wx.TextCtrl(self.target_choice_panel, wx.ID_ANY, "Path to target file")
-        self.target_browse_button = wx.BitmapButton(self.target_choice_panel, wx.ID_ANY, wx.Bitmap("/home/swdev/repos/beamprofiling/Open folder.png", wx.BITMAP_TYPE_ANY))
+        self.target_browse_button = wx.BitmapButton(self.target_choice_panel, wx.ID_ANY, wx.Bitmap("./gui_files/Open folder.png", wx.BITMAP_TYPE_ANY))
         self.target_file_sizer_staticbox = wx.StaticBox(self.target_choice_panel, wx.ID_ANY, "Target file")
         self.target_scaling_radio_box = wx.RadioBox(self, wx.ID_ANY, "Scaling", choices=["Resample", "Trim", "None"], majorDimension=3, style=wx.RA_SPECIFY_COLS)
         self.target_start_text_ctrl = wx.TextCtrl(self, wx.ID_ANY, "0")
@@ -75,7 +73,7 @@ class SetupFrame(wx.Frame):
         self.average_text_ctrl = wx.TextCtrl(self, wx.ID_ANY, "5")
         self.sizer_6_staticbox = wx.StaticBox(self, wx.ID_ANY, "Average")
         self.trace_preview_button = wx.Button(self, wx.ID_ANY, "Preview")
-        self.save_trace_button = wx.BitmapButton(self, wx.ID_ANY, wx.Bitmap("/home/swdev/repos/beamprofiling/Save.png", wx.BITMAP_TYPE_ANY))
+        self.save_trace_button = wx.BitmapButton(self, wx.ID_ANY, wx.Bitmap("./gui_files/Save.png", wx.BITMAP_TYPE_ANY))
         self.sizer_2_staticbox = wx.StaticBox(self, wx.ID_ANY, "Scope PV")
         self.scope_start_text_ctrl = wx.TextCtrl(self, wx.ID_ANY, "0")
         self.scope_length_text_control = wx.TextCtrl(self, wx.ID_ANY, "82")
