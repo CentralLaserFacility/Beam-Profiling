@@ -506,8 +506,8 @@ class LoopFrame(wx.Frame):
         self.target_plot_data = self.curve_axis.plot(self.target, label = 'Target')[0]
         self.curve_plot_data = self.curve_axis.plot(self.current, label = 'Current')[0]
         self.curve_axis.legend()
-        self.i_label = self.curve_axis.text(0.05,0.25, "Iteration: ",transform=self.curve_axis.transAxes)
-        self.rms_label = self.curve_axis.text(0.05,0.2, "RMS: ",transform=self.curve_axis.transAxes)
+        self.i_label = self.curve_axis.text(0.05,0.95, "Iteration: ",transform=self.curve_axis.transAxes, backgroundcolor='white')
+        self.rms_label = self.curve_axis.text(0.05,0.9, "RMS: ",transform=self.curve_axis.transAxes, backgroundcolor='white')
 
 
     def rms_error(self):
