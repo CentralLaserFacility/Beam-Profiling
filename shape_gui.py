@@ -79,7 +79,7 @@ class SetupFrame(wx.Frame):
         self.scope_length_text_control = wx.TextCtrl(self, wx.ID_ANY, "82")
         self.scope_slice_sizer_staticbox = wx.StaticBox(self, wx.ID_ANY, "Start point / length")
         self.target_source_radio_box = wx.RadioBox(self, wx.ID_ANY, "Source for target", choices=["File", "Library"], majorDimension=2, style=wx.RA_SPECIFY_COLS)
-        self.points_label = wx.StaticText(self, wx.ID_ANY, "# Points in trace", style=wx.ALIGN_CENTER_HORIZONTAL)
+        self.points_label = wx.StaticText(self, wx.ID_ANY, "# Points", style=wx.ALIGN_CENTER_HORIZONTAL)
         self.points_text_ctrl = wx.TextCtrl(self, wx.ID_ANY, "82")
         self.gain_txt_ctrl = wx.TextCtrl(self, wx.ID_ANY, "0.3")
         self.gain_sizer_staticbox = wx.StaticBox(self, wx.ID_ANY, "Gain")
@@ -122,7 +122,7 @@ class SetupFrame(wx.Frame):
     def __set_properties(self):
         # begin wxGlade: SetupFrame.__set_properties
         self.SetTitle("Beam Profiling")
-        self.SetSize((1300, 370))
+        self.SetSize((1200, 370))
         self.bkg_path_text_ctrl.SetMinSize((400,30))
         self.bkg_browse_button.SetName('bkg_browse')
         self.bkg_browse_button.SetSize(self.bkg_browse_button.GetBestSize())
