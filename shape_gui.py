@@ -511,8 +511,8 @@ class LoopFrame(wx.Frame):
     def draw_plots(self, rms = 0, i =0):
         self.corr_plot_data.set_ydata(self.correction_factor)
         self.curve_plot_data.set_ydata(self.current)
-        self.curve_axis.set_ybound(lower=-0.1, upper=1.1)
-        self.correction_axis.set_ybound(lower=-0.1, upper=1.1)
+        self.curve_axis.set_ybound(lower=-0.1, upper=1.2)
+        self.correction_axis.set_ybound(lower=0.9*np.amin(self.correction_factor), upper=1.1*np.amax(self.correction_factor))
         self.i_label.set_text("Iteration: %d" % i)
         self.rms_label.set_text("RMS: %.3f" % rms)
         self.canvas.draw()        
