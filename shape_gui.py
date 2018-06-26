@@ -11,8 +11,8 @@
 
 #########################################################################################
 #Any constants that are needed
-SCOPE_WAIT_TIME = 1 # Seconds to wait for a caget from the scope to return
-SIMULATION = True
+SCOPE_WAIT_TIME = 2.1 # Seconds to wait for a caget from the scope to return
+SIMULATION = False
 #########################################################################################
 
 # Imports from installed packages
@@ -534,7 +534,7 @@ class LoopFrame(wx.Frame):
                 time.sleep(0.5)
             else: 
                 current_trace = awg.get_normalised_shape()
-                next_trace = current_trace * self.correction_factor
+                next_trace = current_trace[:self.num_points] * self.correction_factor
                 next_trace_normalised = next_trace/np.amax(current_trace)
                 awg.apply_curve_point_by_point(next_trace_normalised)
                 time.sleep(1.1*self.num_points) #There is a wait time of 1 second for each point in the AWG module
