@@ -78,22 +78,4 @@ class  Awg(object):
            time.sleep(1)
            #raw_input("continue")
 
-
-if __name__ == '__main__':
-
-    awg = Awg('DIP-AWG', 82)
-    raw = awg.get_raw_shape()
-    data = awg.get_normalised_shape()
-    data = data[:82]
-
-    import util
-    util.plotstart()
-    util.plot(raw)
-    util.plotend()
-
-    #awg.save_normalised_shape("./awg_2017_09_21.dat")
-
-    # multiply the first 2 points by 1.2
-    #awg.multiply_point_by_point(range(0,20), 1.2)
-
     

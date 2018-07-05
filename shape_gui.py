@@ -12,7 +12,7 @@
 #########################################################################################
 #Any constants that are needed
 SCOPE_WAIT_TIME = 2.1 # Seconds to wait for a caget from the scope to return
-SIMULATION = False
+SIMULATION = True
 #########################################################################################
 
 # Imports from installed packages
@@ -42,7 +42,7 @@ class SetupFrame(wx.Frame):
     def __init__(self, *args, **kwds):
         # begin wxGlade: SetupFrame.__init__
         wx.Frame.__init__(self, *args, **kwds)
-        self.SetFont(wx.Font(8, wx.DEFAULT, wx.NORMAL, wx.NORMAL, 0, "Ubuntu"))
+        self.SetFont(wx.Font(10, wx.DEFAULT, wx.NORMAL, wx.NORMAL, 0, "Ubuntu"))
         self.bkg_choice_panel = wx.Panel(self, wx.ID_ANY)
         self.bkg_path_text_ctrl = wx.TextCtrl(self.bkg_choice_panel, wx.ID_ANY, "Path to background file")
         self.bkg_browse_button = wx.BitmapButton(self.bkg_choice_panel, wx.ID_ANY, wx.Bitmap("./gui_files/Open folder.png", wx.BITMAP_TYPE_ANY))
@@ -323,7 +323,7 @@ class SetupFrame(wx.Frame):
 
         if reason == 'bkg':
             pathname = self.bkg_path_text_ctrl.GetValue()
-            trim_method = trim_methods[int(self.bkg_scaling_radio_box.GetSelection())]
+            trim_method = 'off' #trim_methods[int(self.bkg_scaling_radio_box.GetSelection())]
             start = int(self.bkg_start_text_ctrl.GetValue())
             length = int(self.bkg_length_text_control.GetValue())
             curve = self.cBackground
@@ -418,6 +418,9 @@ class LoopFrame(wx.Frame):
         self.current=start_curve.get_processed()
         self.correction_factor = np.zeros(np.alen(self.current))
         self.target=target_curve.get_processed()
+        self.max_percent_change = max_percent_change
+        if not SIMULATION:
+            self.awg = Awg("DIP-AWG", self.num_points , self.max_percent_change)
         self.init_plot()
         self.canvas = FigCanvas(self, -1, self.fig)
         self.vbox = wx.BoxSizer(wx.VERTICAL)
@@ -429,11 +432,10 @@ class LoopFrame(wx.Frame):
         self.iterations = iterations
         self.i = 0 #Store the loop count for stopping/restarting loop
         self.tolerance = tolerance
-        self.max_percent_change = max_percent_change
         self.user_end = False
         #Matplotlib callbacks
         self.cid = self.canvas.mpl_connect('button_press_event', self.on_click)
-        self.cid = self.canvas.mpl_connect('key_press_event', self.on_key)
+    #    self.cid = self.canvas.mpl_connect('key_press_event', self.on_key)
         self.Bind(wx.EVT_CLOSE, self.close_window)
         self.parent.go_button.Disable() # Stop the user launching another loop window until this one is closed
         self.Show()
@@ -441,43 +443,44 @@ class LoopFrame(wx.Frame):
 
 
     def on_click(self,event):
-        # Allows mouse click to start/stop the loop
-        self.user_end =  not self.user_end
-        if not self.user_end:
-            self.run_loop()  
+        # Allows mouse click to start/stop the loop 
+        if event.button == 1 and self.user_end == True:
+            self.user_end = False
+            self.run_loop()
+        elif event.button == 3 and self.user_end == False:
+            self.user_end = True
+
+    # def on_key(self,event):
+    #     # Rereads parms from the main window 
+    #     if event.key == "ctrl+r":
+    #         self.reread_parms()
 
 
-    def on_key(self,event):
-        # Rereads parms from the main window 
-        if event.key == "ctrl+r":
-            self.reread_parms()
-
-
-    def reread_parms(self):
-        self.i=0
-        self.gain = float(self.parent.gain_txt_ctrl.GetValue())
-        num_points = int(self.parent.points_text_ctrl.GetValue())
+    # def reread_parms(self):
+    #     self.i=0
+    #     self.gain = float(self.parent.gain_txt_ctrl.GetValue())
+    #     num_points = int(self.parent.points_text_ctrl.GetValue())
         
-        if SIMULATION:
-            curve = Curve(curve_array = 0.5*np.ones(num_points))
-            self.current = curve.get_processed()
-        else:
-            self.update_feedback_curve()
+    #     if SIMULATION:
+    #         curve = Curve(curve_array = 0.5*np.ones(num_points))
+    #         self.current = curve.get_processed()
+    #     else:
+    #         self.update_feedback_curve()
 
-        # Reload curves
-        self.parent.load('bkg')
-        if self.parent.target_source_radio_box.GetSelection() == 0:
-            target_curve = self.parent.cTargetFile
-            self.parent.load('tgt_file')
-        else:
-            target_curve = self.parent.cLibrary
-            self.parent.load('library')
-        self.iterations = int(self.parent.iterations_txt_ctrl.GetValue())
-        self.tolerance = float(self.parent.tolerance_txt_ctrl.GetValue())
-        self.max_percent_change = int(self.parent.max_change_txt_ctrl.GetValue())
-        self.correction_factor = np.zeros(np.alen(self.current))
-        self.target=target_curve.get_processed()
-        self.target_plot_data.set_ydata(self.target)
+    #     # Reload curves
+    #     self.parent.load('bkg')
+    #     if self.parent.target_source_radio_box.GetSelection() == 0:
+    #         target_curve = self.parent.cTargetFile
+    #         self.parent.load('tgt_file')
+    #     else:
+    #         target_curve = self.parent.cLibrary
+    #         self.parent.load('library')
+    #     self.iterations = int(self.parent.iterations_txt_ctrl.GetValue())
+    #     self.tolerance = float(self.parent.tolerance_txt_ctrl.GetValue())
+    #     self.max_percent_change = int(self.parent.max_change_txt_ctrl.GetValue())
+    #     self.correction_factor = np.zeros(np.alen(self.current))
+    #     self.target=target_curve.get_processed()
+    #     self.target_plot_data.set_ydata(self.target)
 
 
     def close_window(self, event):
@@ -487,62 +490,91 @@ class LoopFrame(wx.Frame):
 
     def init_plot(self):
         self.dpi = 100
-        self.fig = plt.Figure((10.0, 5.0), dpi=self.dpi)
-        self.curve_axis = self.fig.add_subplot(121)
-        self.correction_axis = self.fig.add_subplot(122)
-        pylab.setp(self.curve_axis.get_xticklabels(), fontsize=10)
-        pylab.setp(self.curve_axis.get_yticklabels(), fontsize=10)
-        pylab.setp(self.correction_axis.get_xticklabels(), fontsize=10)
-        pylab.setp(self.correction_axis.get_yticklabels(), fontsize=10)
+        self.fig = plt.Figure((15.0, 5.0), dpi=self.dpi)
+        self.curve_axis = self.fig.add_subplot(131)
+        self.correction_axis = self.fig.add_subplot(132)
+        self.awg_axis = self.fig.add_subplot(133)
+        pylab.setp(self.curve_axis.get_xticklabels(), fontsize=8)
+        pylab.setp(self.curve_axis.get_yticklabels(), fontsize=8)
+        pylab.setp(self.correction_axis.get_xticklabels(), fontsize=8)
+        pylab.setp(self.correction_axis.get_yticklabels(), fontsize=8)
+        pylab.setp(self.awg_axis.get_xticklabels(), fontsize=8)
+        pylab.setp(self.awg_axis.get_xticklabels(), fontsize=8)
         pylab.setp(self.correction_axis, title = "Applied Correction")
         pylab.setp(self.curve_axis, title = "Pulse Shape")
+        pylab.setp(self.awg_axis, title="AWG")
         self.corr_plot_data = self.correction_axis.plot(self.correction_factor, label = 'Correction')[0]
         self.target_plot_data = self.curve_axis.plot(self.target, label = 'Target')[0]
         self.curve_plot_data = self.curve_axis.plot(self.current, label = 'Current')[0]
         self.curve_axis.legend()
+        self.curve_axis.set_ybound(lower=-0.1, upper=1.2)
         self.i_label = self.curve_axis.text(0.05,0.95, "Iteration: ",transform=self.curve_axis.transAxes, backgroundcolor='white')
         self.rms_label = self.curve_axis.text(0.05,0.9, "RMS: ",transform=self.curve_axis.transAxes, backgroundcolor='white')
-
+        if not SIMULATION:
+            awg_start = self.awg.get_normalised_shape()
+        else: 
+            awg_start = self.correction_factor
+        self.awg_now_plot_data = self.awg_axis.plot(awg_start, label = 'AWG current')[0]
+        self.awg_next_plot_data = self.awg_axis.plot(awg_start, label = 'AWG next')[0]
+        self.awg_axis.legend()
+        self.awg_axis.set_ybound(lower = -0.1, upper = 1.2)
 
     def rms_error(self):
         return np.sqrt(np.mean(np.square(self.target - self.current)))
 
-
+    # Needs mod to include the AWG axis
     def draw_plots(self, rms = 0, i =0):
         self.corr_plot_data.set_ydata(self.correction_factor)
         self.curve_plot_data.set_ydata(self.current)
-        self.curve_axis.set_ybound(lower=-0.1, upper=1.2)
         self.correction_axis.set_ybound(lower=0.9*np.amin(self.correction_factor), upper=1.1*np.amax(self.correction_factor))
         self.i_label.set_text("Iteration: %d" % i)
         self.rms_label.set_text("RMS: %.3f" % rms)
-        self.canvas.draw()        
+        self.canvas.draw()     
 
+    def draw_awg_plots(self, awg_current, awg_next):
+        self.awg_now_plot_data.set_ydata(awg_current)
+        self.awg_next_plot_data.set_ydata(awg_next)
+        self.canvas.draw()
+        apply = raw_input("q to quit, any other key to continue\n") #User must press key to continue, q will stop the loop
+        return 0 if apply == 'q' else 1 
 
     def run_loop(self):
-        if not SIMULATION:
-            awg = Awg("DIP-AWG", self.num_points , self.max_percent_change)
+        
         iterations = self.iterations
         gain = self.gain
         self.draw_plots(self.rms_error(),self.i)
+        wx.SafeYield(self)# Lets the plot update
+        
         
         while self.i<iterations and self.rms_error()>=self.tolerance and not self.user_end:           
             self.correction_factor = np.nan_to_num(self.target/self.current)
             self.correction_factor = (self.correction_factor - 1) * gain + 1
-
+            
             if SIMULATION: 
                 self.current = self.current * self.correction_factor
-                time.sleep(0.5)
+                #time.sleep(2)
+                apply = self.draw_awg_plots(self.current, self.current / self.correction_factor)              
+                if not apply: 
+                    print "Quitting loop: AWG curve will not be applied\n"
+                    break
+
             else: 
-                current_trace = awg.get_normalised_shape()
+                current_trace = self.awg.get_normalised_shape()
                 next_trace = current_trace[:self.num_points] * self.correction_factor
-                next_trace_normalised = next_trace/np.amax(current_trace)
-                awg.apply_curve_point_by_point(next_trace_normalised)
-                time.sleep(1.1*self.num_points) #There is a wait time of 1 second for each point in the AWG module
+                next_trace_normalised = next_trace/np.amax(next_trace)
+                
+                apply = self.draw_awg_plots(current_trace, next_trace_normalised)
+                
+                if not apply: 
+                    print "Quitting loop: AWG curve will not be applied\n"
+                    break
+
+                self.awg.apply_curve_point_by_point(next_trace_normalised)
                 self.update_feedback_curve()
 
             self.i+=1
             self.draw_plots(self.rms_error(),self.i)
-            wx.SafeYield(self) # Needed to allow processing events to stop loop
+            wx.SafeYield(self) # Needed to allow processing events to stop loop and let plot update
     
     def update_feedback_curve(self):
         start = int(self.parent.scope_start_text_ctrl.GetValue())
