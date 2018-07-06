@@ -230,7 +230,8 @@ class Curve:
        
         if do_bkg:
             # value of "bkg" should be an instance of Curve
-            self._processed = self._processed - val_bkg.get_processed()
+            #self._processed = self._processed - val_bkg.get_processed()
+            pass
         if do_crop:
             self._processed = self._processed[val_crop[0]:val_crop[0+1]]
         if do_resample:

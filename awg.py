@@ -21,9 +21,11 @@ class  Awg(object):
         self.nwf = self.wf/float(self.dac)
 
     def get_raw_shape(self):
+        self._read_current_shape()
         return self.wf
 
     def get_normalised_shape(self):
+        self._read_current_shape()
         return self.nwf
 
 

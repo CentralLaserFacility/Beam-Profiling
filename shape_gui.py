@@ -12,7 +12,7 @@
 #########################################################################################
 #Any constants that are needed
 SCOPE_WAIT_TIME = 2.1 # Seconds to wait for a caget from the scope to return
-SIMULATION = True
+SIMULATION = False
 #########################################################################################
 
 # Imports from installed packages
@@ -511,7 +511,7 @@ class LoopFrame(wx.Frame):
         self.i_label = self.curve_axis.text(0.05,0.95, "Iteration: ",transform=self.curve_axis.transAxes, backgroundcolor='white')
         self.rms_label = self.curve_axis.text(0.05,0.9, "RMS: ",transform=self.curve_axis.transAxes, backgroundcolor='white')
         if not SIMULATION:
-            awg_start = self.awg.get_normalised_shape()
+            awg_start = self.awg.get_normalised_shape()[:82]
         else: 
             awg_start = self.correction_factor
         self.awg_now_plot_data = self.awg_axis.plot(awg_start, label = 'AWG current')[0]
@@ -532,18 +532,20 @@ class LoopFrame(wx.Frame):
         self.canvas.draw()     
 
     def draw_awg_plots(self, awg_current, awg_next):
-        self.awg_now_plot_data.set_ydata(awg_current)
-        self.awg_next_plot_data.set_ydata(awg_next)
+        self.awg_now_plot_data.set_ydata(awg_current[:82])
+        self.awg_next_plot_data.set_ydata(awg_next[:82])
         self.canvas.draw()
-        apply = raw_input("q to quit, any other key to continue\n") #User must press key to continue, q will stop the loop
-        return 0 if apply == 'q' else 1 
+        #cont = raw_input("q to quit, any other key to continue\n") #User must press key to continue, q will stop the loop
+        #print cont
+        #if cont == 'q': return 0     
+        return 1
 
     def run_loop(self):
         
         iterations = self.iterations
         gain = self.gain
         self.draw_plots(self.rms_error(),self.i)
-        wx.SafeYield(self)# Lets the plot update
+        # Lets the plot update
         
         
         while self.i<iterations and self.rms_error()>=self.tolerance and not self.user_end:           
@@ -552,9 +554,9 @@ class LoopFrame(wx.Frame):
             
             if SIMULATION: 
                 self.current = self.current * self.correction_factor
-                #time.sleep(2)
-                apply = self.draw_awg_plots(self.current, self.current / self.correction_factor)              
-                if not apply: 
+                time.sleep(2)
+                cont = self.draw_awg_plots(self.current, self.current / self.correction_factor) 		             
+                if not cont: 
                     print "Quitting loop: AWG curve will not be applied\n"
                     break
 
@@ -562,10 +564,11 @@ class LoopFrame(wx.Frame):
                 current_trace = self.awg.get_normalised_shape()
                 next_trace = current_trace[:self.num_points] * self.correction_factor
                 next_trace_normalised = next_trace/np.amax(next_trace)
-                
-                apply = self.draw_awg_plots(current_trace, next_trace_normalised)
-                
-                if not apply: 
+                next_trace_normalised[self.target==0]=0
+                cont = self.draw_awg_plots(current_trace, next_trace_normalised)
+                self.draw_plots()
+              
+                if not cont: 
                     print "Quitting loop: AWG curve will not be applied\n"
                     break
 
