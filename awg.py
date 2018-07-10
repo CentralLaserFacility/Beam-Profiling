@@ -9,7 +9,7 @@ class  Awg(object):
         self.prefix = prefix
         self.pulse_size = pulse_size
         self.max_incr = max_percent_change_allowed
-        self._read_current_shape()
+    #    self._read_current_shape()
 
     def _read_current_shape(self):
         print "read current shape..."
@@ -37,7 +37,7 @@ class  Awg(object):
 
 
     def get_dac(self):
-        return self.dac
+       return self.dac
 
     def modify_point(self, i, val):
 
@@ -53,7 +53,7 @@ class  Awg(object):
 
             incr = 100.0 * math.fabs(val - self.wf[i])/float(self.dac)
 
-        print "modifying point %d from %f to %f - %.1f percent of DAC" % (i, self.wf[i], val, incr)
+        print "Modifying point %d from %f to %f : %.1f percent of DAC" % (i, self.wf[i], val, incr)
         name = self.prefix + ":_SetSample" + str(i) + "_do"
 
         epics.caput(name,val)
@@ -77,7 +77,7 @@ class  Awg(object):
            if val > self.dac: continue
            self.modify_point(i, val)
            #print "simulation - point "+ str(i) + " - value " + str(val) 
-           time.sleep(1)
+           time.sleep(0.1)
            #raw_input("continue")
 
     

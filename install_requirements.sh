@@ -1,6 +1,6 @@
 #!bin/bash
-
-sudo apt-get install python-wxgtk3.0
+sudo apt-get update
+sudo apt-get install python-wxgtk2.8
 pip install pyepics 
 pip install numpy 
 pip install matplotlib

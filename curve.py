@@ -97,19 +97,19 @@ class Curve:
             self._curve = np.loadtxt(pathname)
 
             if trim_method == "resample":
-                self._curve = self._resample(self._curve,num_points)
+                self._processed = self._resample(self._curve,num_points)
             elif trim_method == "truncate":
-                self._curve = self._curve[:num_points]
+                self._processed = self._curve[:num_points]
                 #pad if needed
-                if np.size(self._curve) < num_points:
-                    np.pad(self._curve,(0,num_points - np.size(self._curve)),'constant')
+                if np.size(self._processed) < num_points:
+                    np.pad(self._processed,(0,num_points - np.size(self._processed)),'constant')
             elif trim_method == "off":
-                pass
+                self._processed = self._curve
             else:
                 pass
 
-            self._num_points = np.alen(self._curve)
-            self._processed = self._curve
+            self._num_points = np.alen(self._processed)
+            #self._processed = self._curve
             
             if not name:
                 self._name = pathname.split('/')[-1]
@@ -230,8 +230,8 @@ class Curve:
        
         if do_bkg:
             # value of "bkg" should be an instance of Curve
-            #self._processed = self._processed - val_bkg.get_processed()
-            pass
+            self._processed = self._processed - val_bkg.get_raw()
+            #pass
         if do_crop:
             self._processed = self._processed[val_crop[0]:val_crop[0+1]]
         if do_resample:
@@ -240,7 +240,6 @@ class Curve:
             self._processed = self._clip_neg(self._processed)
         if do_norm:
             self._processed = self._normalise(self._processed)
-
 
     # Needs rewrite to average over blocks of 5 points at a time
     def _resample(self, data, npoints):
@@ -281,6 +280,9 @@ class Curve:
     def plot_clear(self):
         plt.clf()
         plt.draw()
+    
+    def print_size(self):
+        print "Curve %s size: %d" % (self.name(), np.alen(self.get_raw()))
 
         
 class BkgCurve(Curve):

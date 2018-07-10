@@ -12,7 +12,7 @@
 #########################################################################################
 #Any constants that are needed
 SCOPE_WAIT_TIME = 2.1 # Seconds to wait for a caget from the scope to return
-SIMULATION = False
+SIMULATION = True
 #########################################################################################
 
 # Imports from installed packages
@@ -532,30 +532,33 @@ class LoopFrame(wx.Frame):
         self.canvas.draw()     
 
     def draw_awg_plots(self, awg_current, awg_next):
-        self.awg_now_plot_data.set_ydata(awg_current[:82])
-        self.awg_next_plot_data.set_ydata(awg_next[:82])
+        self.awg_now_plot_data.set_ydata(awg_current[:self.num_points])
+        self.awg_next_plot_data.set_ydata(awg_next[:self.num_points])
         self.canvas.draw()
-        #cont = raw_input("q to quit, any other key to continue\n") #User must press key to continue, q will stop the loop
-        #print cont
-        #if cont == 'q': return 0     
-        return 1
+        temp = raw_input("q to quit, any other key to continue\n") #User must press key to continue, q will stop the loop
+        return 0 if temp == 'q' else  1
+        
 
     def run_loop(self):
         
         iterations = self.iterations
         gain = self.gain
         self.draw_plots(self.rms_error(),self.i)
-        # Lets the plot update
-        
+        wx.SafeYield(self) # Lets the plot update
         
         while self.i<iterations and self.rms_error()>=self.tolerance and not self.user_end:           
             self.correction_factor = np.nan_to_num(self.target/self.current)
             self.correction_factor = (self.correction_factor - 1) * gain + 1
             
             if SIMULATION: 
+                old = self.current
                 self.current = self.current * self.correction_factor
+                self.current[self.target==0]=0
                 time.sleep(2)
-                cont = self.draw_awg_plots(self.current, self.current / self.correction_factor) 		             
+                self.draw_plots(self.rms_error(),self.i)
+                cont = self.draw_awg_plots(old, self.current) 		             
+                wx.SafeYield(self)
+                
                 if not cont: 
                     print "Quitting loop: AWG curve will not be applied\n"
                     break
@@ -563,10 +566,12 @@ class LoopFrame(wx.Frame):
             else: 
                 current_trace = self.awg.get_normalised_shape()
                 next_trace = current_trace[:self.num_points] * self.correction_factor
+                next_trace[self.target==0]=0 # If the target point is zero, set the AWG to zero directly
                 next_trace_normalised = next_trace/np.amax(next_trace)
-                next_trace_normalised[self.target==0]=0
+                
                 cont = self.draw_awg_plots(current_trace, next_trace_normalised)
-                self.draw_plots()
+                self.draw_plots(self.rms_error(),self.i)
+                wx.SafeYield(self)
               
                 if not cont: 
                     print "Quitting loop: AWG curve will not be applied\n"
@@ -576,8 +581,8 @@ class LoopFrame(wx.Frame):
                 self.update_feedback_curve()
 
             self.i+=1
-            self.draw_plots(self.rms_error(),self.i)
-            wx.SafeYield(self) # Needed to allow processing events to stop loop and let plot update
+            #self.draw_plots(self.rms_error(),self.i)
+            #wx.SafeYield(self) # Needed to allow processing events to stop loop and let plot update
     
     def update_feedback_curve(self):
         start = int(self.parent.scope_start_text_ctrl.GetValue())
