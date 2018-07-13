@@ -13,7 +13,7 @@
 #Any constants that are needed
 SCOPE_WAIT_TIME = 2.1 # Seconds to wait for a caget from the scope to return
 SIMULATION = True
-DIAG_FILE_LOCATION = "./diag_files/test"
+DIAG_FILE_LOCATION = "./diag_files/test/"
 AWG_PREFIX = "AWG"
 #########################################################################################
 
@@ -28,10 +28,16 @@ import time
 import pylab
 import epics
 from epics.wx import EpicsFunction, DelayedEpicsCallback
+import os
+from datetime import datetime
 
 # Import from this repo
 from awg import Awg
 from curve import Curve, BkgCurve, TargetCurve
+
+# Create folder for diagnostic files if necessary
+if not os.path.exists(DIAG_FILE_LOCATION):
+    os.makedirs(DIAG_FILE_LOCATION)
 
 
 # begin wxGlade: dependencies
@@ -538,9 +544,13 @@ class LoopFrame(wx.Frame):
                     print "Quitting loop: AWG curve will not be applied\n"
                     break
                 time.sleep(2)
+                
                 #Apply correction
                 self.current = self.current * self.correction_factor
                 self.current[self.target==0]=0
+
+                if self.save_diag_files:
+                    self.save_files(DIAG_FILE_LOCATION, old, self.current)
 
             else: 
                 awg_now = self.awg.get_normalised_shape()
@@ -581,14 +591,17 @@ class LoopFrame(wx.Frame):
             
 
     def save_files(self, location, awg_now, awg_next):
+
+        fileroot=datetime.now().strftime("%Y_%d_%m_%Hh%M")
+
         if self.i == 0:
-            np.savetxt(location + '_target.txt', self.target)
-            np.savetxt(location + '_background.txt', self.parent.cBackground.get_raw())
-            np.savetxt(location + '_initial_AWG_shape.txt', awg_now)
+            np.savetxt(location + fileroot + '_target.txt', self.target)
+            np.savetxt(location + fileroot + '_background.txt', self.parent.cBackground.get_raw())
+            np.savetxt(location + fileroot + '_initial_AWG_shape.txt', awg_now)
         
-        np.savetxt(location + '_i_' + str(self.i) + '_applied_AWG_shape.txt', awg_next)
-        np.savetxt(location + '_i_' + str(self.i) + '_applied_correction.txt', self.correction_factor)
-        np.savetxt(location + '_i_' + str(self.i) + '_scope_trace.txt', self.current)
+        np.savetxt(location + fileroot + '_i_' + str(self.i) + '_applied_AWG_shape.txt', awg_next)
+        np.savetxt(location + fileroot + '_i_' + str(self.i) + '_applied_correction.txt', self.correction_factor)
+        np.savetxt(location + fileroot + '_i_' + str(self.i) + '_scope_trace.txt', self.current)
 
 if __name__ == "__main__":  
 
