@@ -13,6 +13,8 @@
 #Any constants that are needed
 SCOPE_WAIT_TIME = 2.1 # Seconds to wait for a caget from the scope to return
 SIMULATION = True
+DIAG_FILE_LOCATION = "./diag_files/test"
+AWG_PREFIX = "AWG"
 #########################################################################################
 
 # Imports from installed packages
@@ -42,56 +44,43 @@ class SetupFrame(wx.Frame):
     def __init__(self, *args, **kwds):
         # begin wxGlade: SetupFrame.__init__
         wx.Frame.__init__(self, *args, **kwds)
-        self.SetFont(wx.Font(10, wx.DEFAULT, wx.NORMAL, wx.NORMAL, 0, "Ubuntu"))
         self.bkg_choice_panel = wx.Panel(self, wx.ID_ANY)
         self.bkg_path_text_ctrl = wx.TextCtrl(self.bkg_choice_panel, wx.ID_ANY, "Path to background file")
-        self.bkg_browse_button = wx.BitmapButton(self.bkg_choice_panel, wx.ID_ANY, wx.Bitmap("./gui_files/Open folder.png", wx.BITMAP_TYPE_ANY))
+        self.bkg_browse_button = wx.BitmapButton(self.bkg_choice_panel, wx.ID_ANY, wx.Bitmap("/home/swdev/repos/beamprofiling/gui_files/Open folder.png", wx.BITMAP_TYPE_ANY))
         self.bkgfile_sizer_staticbox = wx.StaticBox(self.bkg_choice_panel, wx.ID_ANY, "Background file")
-        self.bkg_scaling_radio_box = wx.RadioBox(self, wx.ID_ANY, "Scaling", choices=["Resample", "Trim", "None"], majorDimension=3, style=wx.RA_SPECIFY_COLS)
-        self.bkg_start_text_ctrl = wx.TextCtrl(self, wx.ID_ANY, "0")
-        self.bkg_length_text_control = wx.TextCtrl(self, wx.ID_ANY, "82")
-        self.bkg_slice_sizer_staticbox = wx.StaticBox(self, wx.ID_ANY, "Start point / length")
-        self.bkg_preview_button = wx.BitmapButton(self, wx.ID_ANY, wx.Bitmap("./gui_files/preview.png", wx.BITMAP_TYPE_ANY))
+        self.bkg_preview_button = wx.BitmapButton(self, wx.ID_ANY, wx.Bitmap("/home/swdev/repos/beamprofiling/gui_files/preview.png", wx.BITMAP_TYPE_ANY))
         self.target_choice_panel = wx.Panel(self, wx.ID_ANY)
         self.target_path_text_ctrl = wx.TextCtrl(self.target_choice_panel, wx.ID_ANY, "Path to target file")
-        self.target_browse_button = wx.BitmapButton(self.target_choice_panel, wx.ID_ANY, wx.Bitmap("./gui_files/Open folder.png", wx.BITMAP_TYPE_ANY))
+        self.target_browse_button = wx.BitmapButton(self.target_choice_panel, wx.ID_ANY, wx.Bitmap("/home/swdev/repos/beamprofiling/gui_files/Open folder.png", wx.BITMAP_TYPE_ANY))
         self.target_file_sizer_staticbox = wx.StaticBox(self.target_choice_panel, wx.ID_ANY, "Target file")
-        self.target_scaling_radio_box = wx.RadioBox(self, wx.ID_ANY, "Scaling", choices=["Resample", "Trim", "None"], majorDimension=3, style=wx.RA_SPECIFY_COLS)
-        self.target_start_text_ctrl = wx.TextCtrl(self, wx.ID_ANY, "0")
-        self.target_length_text_control = wx.TextCtrl(self, wx.ID_ANY, "82")
-        self.target_slice_sizer_staticbox = wx.StaticBox(self, wx.ID_ANY, "Start point / length")
-        self.target_preview_button = wx.BitmapButton(self, wx.ID_ANY, wx.Bitmap("./gui_files/preview.png", wx.BITMAP_TYPE_ANY))
+        self.trace_preview_button = wx.BitmapButton(self, wx.ID_ANY, wx.Bitmap("/home/swdev/repos/beamprofiling/gui_files/preview.png", wx.BITMAP_TYPE_ANY))
         self.library_choice_panel = wx.Panel(self, wx.ID_ANY)
         self.library_combo_box = wx.ComboBox(self.library_choice_panel, wx.ID_ANY, choices=["Square pule, 10ns", "Square pulse, 7 ns", "Some other pulse shape..."], style=wx.CB_READONLY | wx.CB_SORT)
         self.library_file_sizer_staticbox = wx.StaticBox(self.library_choice_panel, wx.ID_ANY, "Pulse shape library")
-        self.library_scaling_radio_box = wx.RadioBox(self, wx.ID_ANY, "Scaling", choices=["Resample", "Trim", "None"], majorDimension=3, style=wx.RA_SPECIFY_COLS)
-        self.library_start_text_ctrl = wx.TextCtrl(self, wx.ID_ANY, "0")
-        self.library_length_text_control = wx.TextCtrl(self, wx.ID_ANY, "82")
-        self.library_slice_sizer_staticbox = wx.StaticBox(self, wx.ID_ANY, "Start point / length")
-        self.library_preview_button = wx.BitmapButton(self, wx.ID_ANY, wx.Bitmap("./gui_files/preview.png", wx.BITMAP_TYPE_ANY))
+        self.library_preview_button = wx.BitmapButton(self, wx.ID_ANY, wx.Bitmap("/home/swdev/repos/beamprofiling/gui_files/preview.png", wx.BITMAP_TYPE_ANY))
         self.scope_pv_text_ctrl = wx.TextCtrl(self, wx.ID_ANY, "TEST-SCOPE:CH2:ReadWaveform", style=wx.TE_PROCESS_ENTER)
         self.grab_trace_button = wx.Button(self, wx.ID_ANY, "Grab")
-        self.average_text_ctrl = wx.TextCtrl(self, wx.ID_ANY, "5")
-        self.sizer_6_staticbox = wx.StaticBox(self, wx.ID_ANY, "Avg")
-        self.trace_preview_button = wx.BitmapButton(self, wx.ID_ANY, wx.Bitmap("./gui_files/preview.png", wx.BITMAP_TYPE_ANY))
-        self.save_trace_button = wx.BitmapButton(self, wx.ID_ANY, wx.Bitmap("./gui_files/Save.png", wx.BITMAP_TYPE_ANY))
-        self.sizer_2_staticbox = wx.StaticBox(self, wx.ID_ANY, "Scope PV")
-        self.scope_start_text_ctrl = wx.TextCtrl(self, wx.ID_ANY, "0")
-        self.scope_length_text_control = wx.TextCtrl(self, wx.ID_ANY, "82")
+        self.trc_avg = wx.TextCtrl(self, wx.ID_ANY, "1", style=wx.TE_CENTRE)
+        self.trc_avg_szr_staticbox = wx.StaticBox(self, wx.ID_ANY, "Average")
+        self.target_preview_button = wx.BitmapButton(self, wx.ID_ANY, wx.Bitmap("/home/swdev/repos/beamprofiling/gui_files/preview.png", wx.BITMAP_TYPE_ANY))
+        self.save_trace_button = wx.BitmapButton(self, wx.ID_ANY, wx.Bitmap("/home/swdev/repos/beamprofiling/gui_files/Save.png", wx.BITMAP_TYPE_ANY))
+        self.scope_pv_szr_staticbox = wx.StaticBox(self, wx.ID_ANY, "Scope PV")
+        self.scope_start_text_ctrl = wx.TextCtrl(self, wx.ID_ANY, "290", style=wx.TE_CENTRE)
+        self.scope_length_text_control = wx.TextCtrl(self, wx.ID_ANY, "410", style=wx.TE_CENTRE)
         self.scope_slice_sizer_staticbox = wx.StaticBox(self, wx.ID_ANY, "Start point / length")
-        self.target_source_radio_box = wx.RadioBox(self, wx.ID_ANY, "Target source", choices=["File", "Lib"], majorDimension=2, style=wx.RA_SPECIFY_COLS)
-        self.points_label = wx.StaticText(self, wx.ID_ANY, "#Pts", style=wx.ALIGN_CENTER_HORIZONTAL)
-        self.points_text_ctrl = wx.TextCtrl(self, wx.ID_ANY, "82")
-        self.gain_txt_ctrl = wx.TextCtrl(self, wx.ID_ANY, "0.3")
+        self.tgt_src_cb = wx.ComboBox(self, wx.ID_ANY, choices=["File", "Library"], style=wx.CB_READONLY)
+        self.src_cb_szr_staticbox = wx.StaticBox(self, wx.ID_ANY, "Target source")
+        self.points_text_ctrl = wx.TextCtrl(self, wx.ID_ANY, "82", style=wx.TE_CENTRE)
+        self.point_szr_staticbox = wx.StaticBox(self, wx.ID_ANY, "Num points")
+        self.gain_txt_ctrl = wx.TextCtrl(self, wx.ID_ANY, "0.1", style=wx.TE_CENTRE)
         self.gain_sizer_staticbox = wx.StaticBox(self, wx.ID_ANY, "Gain")
-        self.iterations_txt_ctrl = wx.TextCtrl(self, wx.ID_ANY, "10")
+        self.iterations_txt_ctrl = wx.TextCtrl(self, wx.ID_ANY, "10", style=wx.TE_CENTRE)
         self.iterations_sizer_staticbox = wx.StaticBox(self, wx.ID_ANY, "Max iterations")
-        self.tolerance_txt_ctrl = wx.TextCtrl(self, wx.ID_ANY, ".01")
+        self.tolerance_txt_ctrl = wx.TextCtrl(self, wx.ID_ANY, ".01", style=wx.TE_CENTRE)
         self.tolerance_sizer_staticbox = wx.StaticBox(self, wx.ID_ANY, "Tolerance")
-        self.max_change_txt_ctrl = wx.TextCtrl(self, wx.ID_ANY, "25")
+        self.max_change_txt_ctrl = wx.TextCtrl(self, wx.ID_ANY, "25", style=wx.TE_CENTRE)
         self.max_change_sizer_staticbox = wx.StaticBox(self, wx.ID_ANY, "Max % change")
-        self.diag_files_radio_box = wx.RadioBox(self, wx.ID_ANY, "Save files each loop", choices=["Yes", "No"], majorDimension=2, style=wx.RA_SPECIFY_COLS)
-        self.loop_settings_sizer_staticbox = wx.StaticBox(self, wx.ID_ANY, "Loop settings")
+        self.diag_files_radio_box = wx.RadioBox(self, wx.ID_ANY, "Save files?", choices=["Yes", "No"], majorDimension=2, style=wx.RA_SPECIFY_COLS)
         self.go_button = wx.Button(self, wx.ID_ANY, "Go")
 
         self.__set_properties()
@@ -100,11 +89,11 @@ class SetupFrame(wx.Frame):
         self.Bind(wx.EVT_BUTTON, self.on_browse, self.bkg_browse_button)
         self.Bind(wx.EVT_BUTTON, self.on_preview, self.bkg_preview_button)
         self.Bind(wx.EVT_BUTTON, self.on_browse, self.target_browse_button)
-        self.Bind(wx.EVT_BUTTON, self.on_preview, self.target_preview_button)
+        self.Bind(wx.EVT_BUTTON, self.on_preview, self.trace_preview_button)
         self.Bind(wx.EVT_BUTTON, self.on_preview, self.library_preview_button)
         self.Bind(wx.EVT_TEXT_ENTER, self.on_scope_pv, self.scope_pv_text_ctrl)
         self.Bind(wx.EVT_BUTTON, self.on_grab_trace, self.grab_trace_button)
-        self.Bind(wx.EVT_BUTTON, self.on_preview, self.trace_preview_button)
+        self.Bind(wx.EVT_BUTTON, self.on_preview, self.target_preview_button)
         self.Bind(wx.EVT_BUTTON, self.on_trace_save, self.save_trace_button)
         self.Bind(wx.EVT_BUTTON, self.on_go, self.go_button)
         # end wxGlade
@@ -123,21 +112,26 @@ class SetupFrame(wx.Frame):
     def __set_properties(self):
         # begin wxGlade: SetupFrame.__set_properties
         self.SetTitle("Beam Profiling")
-        self.SetSize((1100, 380))
+        self.SetSize((1049, 447))
         self.bkg_browse_button.SetSize(self.bkg_browse_button.GetBestSize())
         self.bkg_browse_button.SetDefault()
-        self.bkg_scaling_radio_box.SetSelection(0)
+        self.bkg_preview_button.SetSize(self.bkg_preview_button.GetBestSize())
+        self.bkg_preview_button.SetDefault()
         self.target_browse_button.SetSize(self.target_browse_button.GetBestSize())
         self.target_browse_button.SetDefault()
-        self.target_scaling_radio_box.SetSelection(0)
-        #self.library_combo_box.SetFont(wx.Font(11, wx.DEFAULT, wx.NORMAL, wx.NORMAL, 0, "Ubuntu"))
+        self.trace_preview_button.SetSize(self.trace_preview_button.GetBestSize())
+        self.trace_preview_button.SetDefault()
+        self.library_combo_box.SetFont(wx.Font(11, wx.DEFAULT, wx.NORMAL, wx.NORMAL, 0, "Ubuntu"))
         self.library_combo_box.SetSelection(0)
-        self.library_scaling_radio_box.SetSelection(0)
+        self.library_preview_button.SetSize(self.library_preview_button.GetBestSize())
+        self.library_preview_button.SetDefault()
+        self.target_preview_button.SetSize(self.target_preview_button.GetBestSize())
+        self.target_preview_button.SetDefault()
         self.save_trace_button.SetSize(self.save_trace_button.GetBestSize())
-        self.target_source_radio_box.SetSelection(0)
+        self.tgt_src_cb.SetSelection(0)
         self.diag_files_radio_box.SetSelection(0)
         self.go_button.SetBackgroundColour(wx.Colour(10, 255, 5))
-        self.go_button.SetFont(wx.Font(10, wx.DEFAULT, wx.NORMAL, wx.BOLD, 0, ""))
+        self.go_button.SetFont(wx.Font(14, wx.DEFAULT, wx.NORMAL, wx.BOLD, 0, ""))
         # end wxGlade
         self.bkg_preview_button.SetName('bkg_prv')
         self.bkg_browse_button.SetName('bkg_browse')
@@ -149,9 +143,8 @@ class SetupFrame(wx.Frame):
     def __do_layout(self):
         # begin wxGlade: SetupFrame.__do_layout
         main_sizer = wx.BoxSizer(wx.VERTICAL)
-        sizer_5 = wx.BoxSizer(wx.HORIZONTAL)
-        self.loop_settings_sizer_staticbox.Lower()
-        loop_settings_sizer = wx.StaticBoxSizer(self.loop_settings_sizer_staticbox, wx.HORIZONTAL)
+        loop_szr = wx.BoxSizer(wx.HORIZONTAL)
+        loop_settings_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.max_change_sizer_staticbox.Lower()
         max_change_sizer = wx.StaticBoxSizer(self.max_change_sizer_staticbox, wx.HORIZONTAL)
         self.tolerance_sizer_staticbox.Lower()
@@ -160,96 +153,84 @@ class SetupFrame(wx.Frame):
         iterations_sizer = wx.StaticBoxSizer(self.iterations_sizer_staticbox, wx.HORIZONTAL)
         self.gain_sizer_staticbox.Lower()
         gain_sizer = wx.StaticBoxSizer(self.gain_sizer_staticbox, wx.HORIZONTAL)
-        sizer_1 = wx.BoxSizer(wx.HORIZONTAL)
-        sizer_3 = wx.BoxSizer(wx.HORIZONTAL)
-        sizer_4 = wx.BoxSizer(wx.VERTICAL)
+        scope_szr = wx.BoxSizer(wx.HORIZONTAL)
+        tgt_src_szr = wx.BoxSizer(wx.HORIZONTAL)
+        self.point_szr_staticbox.Lower()
+        point_szr = wx.StaticBoxSizer(self.point_szr_staticbox, wx.HORIZONTAL)
+        self.src_cb_szr_staticbox.Lower()
+        src_cb_szr = wx.StaticBoxSizer(self.src_cb_szr_staticbox, wx.HORIZONTAL)
         self.scope_slice_sizer_staticbox.Lower()
         scope_slice_sizer = wx.StaticBoxSizer(self.scope_slice_sizer_staticbox, wx.HORIZONTAL)
-        self.sizer_2_staticbox.Lower()
-        sizer_2 = wx.StaticBoxSizer(self.sizer_2_staticbox, wx.HORIZONTAL)
-        self.sizer_6_staticbox.Lower()
-        sizer_6 = wx.StaticBoxSizer(self.sizer_6_staticbox, wx.VERTICAL)
+        self.scope_pv_szr_staticbox.Lower()
+        scope_pv_szr = wx.StaticBoxSizer(self.scope_pv_szr_staticbox, wx.HORIZONTAL)
+        self.trc_avg_szr_staticbox.Lower()
+        trc_avg_szr = wx.StaticBoxSizer(self.trc_avg_szr_staticbox, wx.HORIZONTAL)
         library_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.library_slice_sizer_staticbox.Lower()
-        library_slice_sizer = wx.StaticBoxSizer(self.library_slice_sizer_staticbox, wx.HORIZONTAL)
         self.library_file_sizer_staticbox.Lower()
         library_file_sizer = wx.StaticBoxSizer(self.library_file_sizer_staticbox, wx.HORIZONTAL)
         target_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.target_slice_sizer_staticbox.Lower()
-        target_slice_sizer = wx.StaticBoxSizer(self.target_slice_sizer_staticbox, wx.HORIZONTAL)
         self.target_file_sizer_staticbox.Lower()
         target_file_sizer = wx.StaticBoxSizer(self.target_file_sizer_staticbox, wx.HORIZONTAL)
         bkg_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.bkg_slice_sizer_staticbox.Lower()
-        bkg_slice_sizer = wx.StaticBoxSizer(self.bkg_slice_sizer_staticbox, wx.HORIZONTAL)
         self.bkgfile_sizer_staticbox.Lower()
         bkgfile_sizer = wx.StaticBoxSizer(self.bkgfile_sizer_staticbox, wx.HORIZONTAL)
-        bkgfile_sizer.Add(self.bkg_path_text_ctrl, 4, wx.EXPAND, 0)
+        bkgfile_sizer.Add(self.bkg_path_text_ctrl, 2, wx.EXPAND, 0)
         bkgfile_sizer.Add(self.bkg_browse_button, 0, wx.ALIGN_CENTER_VERTICAL, 0)
         self.bkg_choice_panel.SetSizer(bkgfile_sizer)
-        bkg_sizer.Add(self.bkg_choice_panel, 4, wx.ALIGN_CENTER_VERTICAL, 0)
-        bkg_sizer.Add((30, 10), 0, wx.ALIGN_CENTER_VERTICAL, 0)
-        bkg_sizer.Add(self.bkg_scaling_radio_box, 0, wx.ALIGN_CENTER_VERTICAL, 0)
-        bkg_slice_sizer.Add(self.bkg_start_text_ctrl, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
-        bkg_slice_sizer.Add(self.bkg_length_text_control, 0, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
-        bkg_sizer.Add(bkg_slice_sizer, 0, wx.ALIGN_CENTER_VERTICAL, 0)
-        bkg_sizer.Add(self.bkg_preview_button, 1, wx.ALIGN_CENTER_VERTICAL, 0)
+        bkg_sizer.Add(self.bkg_choice_panel, 2, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
+        bkg_sizer.Add((20, 10), 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        bkg_sizer.Add(self.bkg_preview_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
         main_sizer.Add(bkg_sizer, 1, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
-        target_file_sizer.Add(self.target_path_text_ctrl, 3, wx.EXPAND, 0)
+        main_sizer.Add((20, 10), 0, 0, 0)
+        target_file_sizer.Add(self.target_path_text_ctrl, 2, wx.EXPAND, 0)
         target_file_sizer.Add(self.target_browse_button, 0, wx.ALIGN_CENTER_VERTICAL, 0)
         self.target_choice_panel.SetSizer(target_file_sizer)
-        target_sizer.Add(self.target_choice_panel, 4, wx.ALIGN_CENTER_VERTICAL, 0)
-        target_sizer.Add((30, 10), 0, wx.ALIGN_CENTER_VERTICAL, 0)
-        target_sizer.Add(self.target_scaling_radio_box, 0, wx.ALIGN_CENTER_VERTICAL, 0)
-        target_slice_sizer.Add(self.target_start_text_ctrl, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
-        target_slice_sizer.Add(self.target_length_text_control, 0, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
-        target_sizer.Add(target_slice_sizer, 0, wx.ALIGN_CENTER_VERTICAL, 0)
-        target_sizer.Add(self.target_preview_button, 1, wx.ALIGN_CENTER_VERTICAL, 0)
+        target_sizer.Add(self.target_choice_panel, 2, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
+        target_sizer.Add((20, 20), 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        target_sizer.Add(self.target_preview_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
         main_sizer.Add(target_sizer, 1, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
-        library_file_sizer.Add(self.library_combo_box, 2, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
+        main_sizer.Add((20, 10), 0, 0, 0)
+        library_file_sizer.Add(self.library_combo_box, 4, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
         self.library_choice_panel.SetSizer(library_file_sizer)
-        library_sizer.Add(self.library_choice_panel, 4, wx.ALIGN_CENTER_VERTICAL, 0)
-        library_sizer.Add((30, 10), 0, wx.ALIGN_CENTER_VERTICAL, 0)
-        library_sizer.Add(self.library_scaling_radio_box, 0, wx.ALIGN_CENTER_VERTICAL, 0)
-        library_slice_sizer.Add(self.library_start_text_ctrl, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
-        library_slice_sizer.Add(self.library_length_text_control, 0, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
-        library_sizer.Add(library_slice_sizer, 0, wx.ALIGN_CENTER_VERTICAL, 0)
-        library_sizer.Add(self.library_preview_button, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        library_sizer.Add(self.library_choice_panel, 2, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
+        library_sizer.Add((20, 10), 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        library_sizer.Add(self.library_preview_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
         main_sizer.Add(library_sizer, 1, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
-        main_sizer.Add((500, 20), 0, 0, 0)
-        sizer_2.Add(self.scope_pv_text_ctrl, 3, wx.EXPAND, 0)
-        sizer_2.Add(self.grab_trace_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
-        sizer_6.Add(self.average_text_ctrl, 0, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
-        sizer_2.Add(sizer_6, 0, 0, 0)
-        sizer_2.Add(self.trace_preview_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
-        sizer_2.Add(self.save_trace_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
-        sizer_1.Add(sizer_2, 3, 0, 0)
-        scope_slice_sizer.Add(self.scope_start_text_ctrl, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
-        scope_slice_sizer.Add(self.scope_length_text_control, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
-        sizer_1.Add(scope_slice_sizer, 0, 0,0)
-        sizer_3.Add((20, 20), 0, 0, 0)
-        sizer_3.Add(self.target_source_radio_box, 0, wx.ALIGN_CENTER | wx.EXPAND, 0)
-        sizer_3.Add((20, 20), 0, 0, 0)
-        sizer_4.Add(self.points_label, 1, wx.ALIGN_CENTER, 0)
-        sizer_3.Add(sizer_4, 0, wx.ALIGN_CENTER_VERTICAL, 0)
-        sizer_3.Add(self.points_text_ctrl, 0, wx.ALIGN_CENTER, 0)
-        sizer_1.Add(sizer_3, 1, 0, 0)
-        main_sizer.Add(sizer_1, 1, 0, 0)
-        main_sizer.Add((500, 20), 0, 0, 0)
+        main_sizer.Add((500, 10), 0, 0, 0)
+        scope_pv_szr.Add(self.scope_pv_text_ctrl, 2, wx.EXPAND, 0)
+        scope_pv_szr.Add(self.grab_trace_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
+        trc_avg_szr.Add(self.trc_avg, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
+        scope_pv_szr.Add(trc_avg_szr, 0, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
+        scope_pv_szr.Add(self.trace_preview_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
+        scope_pv_szr.Add(self.save_trace_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
+        scope_szr.Add(scope_pv_szr, 3, wx.EXPAND, 0)
+        scope_slice_sizer.Add(self.scope_start_text_ctrl, 1, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
+        scope_slice_sizer.Add(self.scope_length_text_control, 1, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
+        scope_szr.Add(scope_slice_sizer, 1, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
+        tgt_src_szr.Add((10, 20), 0, 0, 0)
+        src_cb_szr.Add(self.tgt_src_cb, 1, wx.EXPAND, 0)
+        tgt_src_szr.Add(src_cb_szr, 1, wx.EXPAND, 0)
+        tgt_src_szr.Add((10, 20), 0, 0, 0)
+        point_szr.Add(self.points_text_ctrl, 1, wx.EXPAND, 0)
+        tgt_src_szr.Add(point_szr, 1, wx.EXPAND, 0)
+        scope_szr.Add(tgt_src_szr, 1, 0, 0)
+        main_sizer.Add(scope_szr, 1, wx.EXPAND, 0)
+        main_sizer.Add((500, 30), 0, 0, 0)
         gain_sizer.Add(self.gain_txt_ctrl, 1, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
-        loop_settings_sizer.Add(gain_sizer, 1, wx.RIGHT, 0)
+        loop_settings_sizer.Add(gain_sizer, 1, wx.BOTTOM | wx.EXPAND | wx.RIGHT, 0)
         iterations_sizer.Add(self.iterations_txt_ctrl, 1, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
-        loop_settings_sizer.Add(iterations_sizer, 1, 0, 0)
+        loop_settings_sizer.Add(iterations_sizer, 1, wx.EXPAND, 0)
         tolerance_sizer.Add(self.tolerance_txt_ctrl, 1, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
-        loop_settings_sizer.Add(tolerance_sizer, 1, 0, 0)
+        loop_settings_sizer.Add(tolerance_sizer, 1, wx.EXPAND, 0)
         max_change_sizer.Add(self.max_change_txt_ctrl, 1, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
-        loop_settings_sizer.Add(max_change_sizer, 1, 0, 0)
-        loop_settings_sizer.Add(self.diag_files_radio_box, 1, wx.ALIGN_CENTER | wx.EXPAND, 0)
-        sizer_5.Add(loop_settings_sizer, 4, wx.ALIGN_CENTER | wx.EXPAND, 0)
-        sizer_5.Add(self.go_button, 1, wx.EXPAND, 0)
-        main_sizer.Add(sizer_5, 1, wx.EXPAND, 0)
+        loop_settings_sizer.Add(max_change_sizer, 1, wx.EXPAND, 0)
+        loop_settings_sizer.Add(self.diag_files_radio_box, 0, wx.ALIGN_CENTER | wx.EXPAND, 0)
+        loop_szr.Add(loop_settings_sizer, 4, wx.ALL | wx.EXPAND, 0)
+        loop_szr.Add(self.go_button, 1, wx.EXPAND, 0)
+        main_sizer.Add(loop_szr, 1, wx.EXPAND, 0)
         self.SetSizer(main_sizer)
         self.Layout()
+        
         # end wxGlade
 
 
@@ -300,7 +281,7 @@ class SetupFrame(wx.Frame):
             self.target_path_text_ctrl.SetValue(pathname)
             
         
-    def on_preview(self, event):  # wxGlade: SetupFrame.<event_handler>        
+    def on_preview(self, event):  # wxGlade: SetupFrame.<event_handler>   
         if event.GetEventObject().GetName() == 'bkg_prv':
             reason = 'bkg'
             curve = self.cBackground
@@ -319,20 +300,15 @@ class SetupFrame(wx.Frame):
 
     def load(self, reason):
         num_points = int(self.points_text_ctrl.GetValue())
-        trim_methods = ['resample', 'truncate', 'off']
 
         if reason == 'bkg':
             pathname = self.bkg_path_text_ctrl.GetValue()
-            trim_method = 'off' #trim_methods[int(self.bkg_scaling_radio_box.GetSelection())]
-            start = int(self.bkg_start_text_ctrl.GetValue())
-            length = int(self.bkg_length_text_control.GetValue())
+            trim_method = 'resample' #trim_methods[int(self.bkg_scaling_radio_box.GetSelection())]
             curve = self.cBackground
-            clip_and_norm = False 
+            clip_and_norm = False
         elif reason == 'tgt_file':
             pathname = self.target_path_text_ctrl.GetValue()
-            trim_method = trim_methods[int(self.target_scaling_radio_box.GetSelection())]
-            start = int(self.target_start_text_ctrl.GetValue())
-            length = int(self.target_length_text_control.GetValue())
+            trim_method = 'resample'
             curve = self.cTargetFile
             clip_and_norm = True
         elif reason == 'library':
@@ -340,22 +316,22 @@ class SetupFrame(wx.Frame):
         elif reason == 'trace':
             self.cTrace.plot_raw()
             return
-        self.open_and_process(curve, clip_and_norm, num_points, pathname, trim_method, start, length)
+        self.open_and_process(curve, clip_and_norm, num_points, pathname, trim_method)
 
 
-    def open_and_process(self, curve, clip_and_norm, num_pts, pathname, trm_meth, start, length):
+    def open_and_process(self, curve, clip_and_norm, num_pts, pathname, trm_meth):
         curve.load(num_points=num_pts, trim_method = trm_meth, data = str(pathname))
         # Don't clip or normalise the background
         if clip_and_norm == True:
-            curve.process('clip','norm', crop = (start, length), resample = num_pts)
+            curve.process('clip','norm', resample = num_pts)
         else:
-            curve.process(crop = (start, length), resample = num_pts)
+            curve.process( resample = num_pts)
         return
 
 
     def on_grab_trace(self, event):  # wxGlade: SetupFrame.<event_handler>
         ''' Grabs a user defined number of traces from the scope'''
-        num_to_average = int(self.average_text_ctrl.GetValue())        
+        num_to_average = int(self.trc_avg.GetValue())        
         datas=[]
         i=0
         while i < num_to_average:
@@ -390,7 +366,7 @@ class SetupFrame(wx.Frame):
 
         # Reload curves
         self.load('bkg')
-        if self.target_source_radio_box.GetSelection() == 0:
+        if self.tgt_src_cb.GetSelection() == 0:
             target_curve = self.cTargetFile
             self.load('tgt_file')
         else:
@@ -420,7 +396,7 @@ class LoopFrame(wx.Frame):
         self.target=target_curve.get_processed()
         self.max_percent_change = max_percent_change
         if not SIMULATION:
-            self.awg = Awg("DIP-AWG", self.num_points , self.max_percent_change)
+            self.awg = Awg(AWG_PREFIX, self.num_points , self.max_percent_change)
         self.init_plot()
         self.canvas = FigCanvas(self, -1, self.fig)
         self.vbox = wx.BoxSizer(wx.VERTICAL)
@@ -438,6 +414,7 @@ class LoopFrame(wx.Frame):
     #    self.cid = self.canvas.mpl_connect('key_press_event', self.on_key)
         self.Bind(wx.EVT_CLOSE, self.close_window)
         self.parent.go_button.Disable() # Stop the user launching another loop window until this one is closed
+        self.save_diag_files = True if parent.diag_files_radio_box.GetSelection() == 0 else False
         self.Show()
         self.run_loop()
 
@@ -552,9 +529,7 @@ class LoopFrame(wx.Frame):
             
             if SIMULATION: 
                 old = self.current
-                self.current = self.current * self.correction_factor
-                self.current[self.target==0]=0
-                time.sleep(2)
+                
                 self.draw_plots(self.rms_error(),self.i)
                 cont = self.draw_awg_plots(old, self.current) 		             
                 wx.SafeYield(self)
@@ -562,27 +537,36 @@ class LoopFrame(wx.Frame):
                 if not cont: 
                     print "Quitting loop: AWG curve will not be applied\n"
                     break
+                time.sleep(2)
+                #Apply correction
+                self.current = self.current * self.correction_factor
+                self.current[self.target==0]=0
 
             else: 
-                current_trace = self.awg.get_normalised_shape()
-                next_trace = current_trace[:self.num_points] * self.correction_factor
-                next_trace[self.target==0]=0 # If the target point is zero, set the AWG to zero directly
-                next_trace_normalised = next_trace/np.amax(next_trace)
+                awg_now = self.awg.get_normalised_shape()
+                awg_next = awg_now[:self.num_points] * self.correction_factor
+                awg_next[self.target==0]=0 # If the target point is zero, set the AWG to zero directly
+                awg_next_norm = awg_next/np.amax(awg_next)
                 
-                cont = self.draw_awg_plots(current_trace, next_trace_normalised)
+                cont = self.draw_awg_plots(awg_now, awg_next_norm)
                 self.draw_plots(self.rms_error(),self.i)
                 wx.SafeYield(self)
               
                 if not cont: 
                     print "Quitting loop: AWG curve will not be applied\n"
                     break
-
-                self.awg.apply_curve_point_by_point(next_trace_normalised)
+                
+                self.awg.apply_curve_point_by_point(awg_next_norm)
                 self.update_feedback_curve()
 
+                if self.save_diag_files:
+                    self.save_files(DIAG_FILE_LOCATION, awg_now, awg_next_norm)
+
+            
             self.i+=1
-            #self.draw_plots(self.rms_error(),self.i)
-            #wx.SafeYield(self) # Needed to allow processing events to stop loop and let plot update
+        self.draw_plots(self.rms_error(),self.i)
+        wx.SafeYield(self) # Needed to allow processing events to stop loop and let plot update
+        print "Loop ended"
     
     def update_feedback_curve(self):
         start = int(self.parent.scope_start_text_ctrl.GetValue())
@@ -595,6 +579,16 @@ class LoopFrame(wx.Frame):
             crop = cropping , resample = self.num_points)
         self.current = self.parent.cFeedback.get_processed()
             
+
+    def save_files(self, location, awg_now, awg_next):
+        if self.i == 0:
+            np.savetxt(location + '_target.txt', self.target)
+            np.savetxt(location + '_background.txt', self.parent.cBackground.get_raw())
+            np.savetxt(location + '_initial_AWG_shape.txt', awg_now)
+        
+        np.savetxt(location + '_i_' + str(self.i) + '_applied_AWG_shape.txt', awg_next)
+        np.savetxt(location + '_i_' + str(self.i) + '_applied_correction.txt', self.correction_factor)
+        np.savetxt(location + '_i_' + str(self.i) + '_scope_trace.txt', self.current)
 
 if __name__ == "__main__":  
 
