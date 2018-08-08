@@ -15,6 +15,7 @@ SCOPE_WAIT_TIME = 2.1 # Seconds to wait for a caget from the scope to return
 SIMULATION = True
 DIAG_FILE_LOCATION = "./diag_files/test/"
 AWG_PREFIX = "AWG"
+NO_ERR = 0
 #########################################################################################
 
 # Imports from installed packages
@@ -135,7 +136,7 @@ class SetupFrame(wx.Frame):
         self.target_preview_button.SetDefault()
         self.save_trace_button.SetSize(self.save_trace_button.GetBestSize())
         self.tgt_src_cb.SetSelection(0)
-        self.diag_files_radio_box.SetSelection(0)
+        self.diag_files_radio_box.SetSelection(1)
         self.go_button.SetBackgroundColour(wx.Colour(10, 255, 5))
         self.go_button.SetFont(wx.Font(14, wx.DEFAULT, wx.NORMAL, wx.BOLD, 0, ""))
         # end wxGlade
@@ -379,7 +380,7 @@ class SetupFrame(wx.Frame):
             target_curve = self.cLibrary
             target_loaded = self.load('library')
 
-        if bkg_loaded == 0 and target_loaded == 0 :   
+        if bkg_loaded == NO_ERR and target_loaded == NO_ERR :   
             iterations = int(self.iterations_txt_ctrl.GetValue())
             tolerance = float(self.tolerance_txt_ctrl.GetValue())
             max_percent_change = int(self.max_change_txt_ctrl.GetValue())
@@ -540,10 +541,11 @@ class LoopFrame(wx.Frame):
             self.correction_factor = (self.correction_factor - 1) * gain + 1
             
             if SIMULATION: 
-                old = self.current
-                
+                awg_now = self.current
+                awg_next = self.current * self.correction_factor
+
                 self.draw_plots(self.rms_error(),self.i)
-                cont = self.draw_awg_plots(old, self.current) 		             
+                cont = self.draw_awg_plots(self.current, awg_next) 		             
                 wx.SafeYield(self)
                 
                 if not cont: 
@@ -556,7 +558,7 @@ class LoopFrame(wx.Frame):
                 self.current[self.target==0]=0
 
                 if self.save_diag_files:
-                    self.save_files(DIAG_FILE_LOCATION, old, self.current)
+                    self.save_files(DIAG_FILE_LOCATION, awg_now, awg_next)
 
             else: 
                 awg_now = self.awg.get_normalised_shape()
@@ -564,8 +566,8 @@ class LoopFrame(wx.Frame):
                 awg_next[self.target==0]=0 # If the target point is zero, set the AWG to zero directly
                 awg_next_norm = awg_next/np.amax(awg_next)
                 
-                cont = self.draw_awg_plots(awg_now, awg_next_norm)
                 self.draw_plots(self.rms_error(),self.i)
+                cont = self.draw_awg_plots(awg_now, awg_next_norm)
                 wx.SafeYield(self)
               
                 if not cont: 
