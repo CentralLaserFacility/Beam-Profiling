@@ -68,7 +68,7 @@ class Curve:
                 self._name = "manual"
             else: 
                 self._name = name
-            return
+            return 0
 
         elif isinstance(data,str):
             pathname = data
@@ -89,7 +89,7 @@ class Curve:
                             style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST) as fileDialog:
 
                 if fileDialog.ShowModal() == wx.ID_CANCEL:
-                    return    # Quit with no file loaded
+                    return -1   # Quit with no file loaded
 
                 pathname = fileDialog.GetPath()
 
@@ -115,11 +115,12 @@ class Curve:
                 self._name = pathname.split('/')[-1]
             else: 
                 self._name = name
+            
+            return 0
 
         except:
             print("Can't open the file")
-
-        return 
+            return -1
     
     def save(self, raw = False, pathname = None):
         """

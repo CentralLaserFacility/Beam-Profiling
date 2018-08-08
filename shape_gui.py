@@ -301,38 +301,38 @@ class SetupFrame(wx.Frame):
             reason = 'trace'
             curve = self.cTrace
         self.load(reason)
-        curve.plot_all()
+        curve.plot_processed()
 
 
     def load(self, reason):
-        num_points = int(self.points_text_ctrl.GetValue())
+        num_pts = int(self.points_text_ctrl.GetValue())
 
         if reason == 'bkg':
             pathname = self.bkg_path_text_ctrl.GetValue()
-            trim_method = 'resample' #trim_methods[int(self.bkg_scaling_radio_box.GetSelection())]
-            curve = self.cBackground
-            clip_and_norm = False
+            err = self.cBackground.load(num_points=num_pts, trim_method = 'off', data = str(pathname))
         elif reason == 'tgt_file':
             pathname = self.target_path_text_ctrl.GetValue()
-            trim_method = 'resample'
-            curve = self.cTargetFile
-            clip_and_norm = True
+            err = self.cTargetFile.load(num_points=num_pts, trim_method = 'resample', data = str(pathname))
+            self.cTargetFile.process('clip','norm', resample = num_pts)
         elif reason == 'library':
-            return
+            pass
+            err = 0
         elif reason == 'trace':
-            self.cTrace.plot_raw()
-            return
-        self.open_and_process(curve, clip_and_norm, num_points, pathname, trim_method)
+            pass
+            err = 0
+        return err
+            
+        
 
 
-    def open_and_process(self, curve, clip_and_norm, num_pts, pathname, trm_meth):
-        curve.load(num_points=num_pts, trim_method = trm_meth, data = str(pathname))
-        # Don't clip or normalise the background
-        if clip_and_norm == True:
-            curve.process('clip','norm', resample = num_pts)
-        else:
-            curve.process( resample = num_pts)
-        return
+    # def open_and_process(self, curve, clip_and_norm, num_pts, pathname, trm_meth):
+    #     curve.load(num_points=num_pts, trim_method = trm_meth, data = str(pathname))
+    #     # Don't clip or normalise the background
+    #     if clip_and_norm == True:
+    #         curve.process('clip','norm', resample = num_pts)
+    #     else:
+    #         curve.process(resample = num_pts)
+    #     return
 
 
     def on_grab_trace(self, event):  # wxGlade: SetupFrame.<event_handler>
@@ -371,17 +371,23 @@ class SetupFrame(wx.Frame):
 
 
         # Reload curves
-        self.load('bkg')
+        bkg_loaded = self.load('bkg')
         if self.tgt_src_cb.GetSelection() == 0:
             target_curve = self.cTargetFile
-            self.load('tgt_file')
+            target_loaded = self.load('tgt_file')
         else:
             target_curve = self.cLibrary
-            self.load('library')
-        iterations = int(self.iterations_txt_ctrl.GetValue())
-        tolerance = float(self.tolerance_txt_ctrl.GetValue())
-        max_percent_change = int(self.max_change_txt_ctrl.GetValue())
-        self.run_loop(start_curve, target_curve, gain, iterations, tolerance, max_percent_change)
+            target_loaded = self.load('library')
+
+        if bkg_loaded == 0 and target_loaded == 0 :   
+            iterations = int(self.iterations_txt_ctrl.GetValue())
+            tolerance = float(self.tolerance_txt_ctrl.GetValue())
+            max_percent_change = int(self.max_change_txt_ctrl.GetValue())
+            self.run_loop(start_curve, target_curve, gain, iterations, tolerance, max_percent_change)
+        else:
+            err = wx.MessageDialog(self, "Couldn't open the background and/or target files", caption="File open error",
+              style=wx.ICON_ERROR)
+            err.ShowModal()
 
 
     def run_loop(self, start_curve, target_curve, gain, iterations, tolerance, max_percent_change):
