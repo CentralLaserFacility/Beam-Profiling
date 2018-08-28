@@ -15,6 +15,7 @@ SCOPE_WAIT_TIME = 2.1 # Seconds to wait for a caget from the scope to return
 SIMULATION = True
 DIAG_FILE_LOCATION = "./diag_files/test/"
 AWG_PREFIX = "AWG"
+DEFAULT_SCOPE_PV="SCOPE:CH2:ReadWaveform"
 NO_ERR = 0
 #########################################################################################
 
@@ -65,7 +66,7 @@ class SetupFrame(wx.Frame):
         self.library_combo_box = wx.ComboBox(self.library_choice_panel, wx.ID_ANY, choices=["Square pule, 10ns", "Square pulse, 7 ns", "Some other pulse shape..."], style=wx.CB_READONLY | wx.CB_SORT)
         self.library_file_sizer_staticbox = wx.StaticBox(self.library_choice_panel, wx.ID_ANY, "Pulse shape library")
         self.library_preview_button = wx.BitmapButton(self, wx.ID_ANY, wx.Bitmap("/home/swdev/repos/beamprofiling/gui_files/preview.png", wx.BITMAP_TYPE_ANY))
-        self.scope_pv_text_ctrl = wx.TextCtrl(self, wx.ID_ANY, "TEST-SCOPE:CH2:ReadWaveform", style=wx.TE_PROCESS_ENTER)
+        self.scope_pv_text_ctrl = wx.TextCtrl(self, wx.ID_ANY, DEFAULT_SCOPE_PV, style=wx.TE_PROCESS_ENTER)
         self.grab_trace_button = wx.Button(self, wx.ID_ANY, "Grab")
         self.trc_avg = wx.TextCtrl(self, wx.ID_ANY, "1", style=wx.TE_CENTRE)
         self.trc_avg_szr_staticbox = wx.StaticBox(self, wx.ID_ANY, "Average")
@@ -525,8 +526,12 @@ class LoopFrame(wx.Frame):
         self.awg_now_plot_data.set_ydata(awg_current[:self.num_points])
         self.awg_next_plot_data.set_ydata(awg_next[:self.num_points])
         self.canvas.draw()
-        temp = raw_input("q to quit, any other key to continue\n") #User must press key to continue, q will stop the loop
-        return 0 if temp == 'q' else  1
+        
+        proceed = wx.MessageDialog(self, "Apply the next correction?", style=wx.YES_NO|wx.YES_DEFAULT)
+        return 1 if proceed.ShowModal()==wx.ID_YES else 0
+       
+        #temp = raw_input("q to quit, any other key to continue\n") #User must press key to continue, q will stop the loop
+        #return 0 if temp == 'q' else  1
         
 
     def run_loop(self):
