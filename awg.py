@@ -77,7 +77,7 @@ class  Awg(object):
            if val > self.dac: continue
            self.modify_point(i, val)
            #print "simulation - point "+ str(i) + " - value " + str(val) 
-           time.sleep(0.1)
+           time.sleep(0.3)
            #raw_input("continue")
 
     

@@ -12,10 +12,10 @@
 #########################################################################################
 #Any constants that are needed
 SCOPE_WAIT_TIME = 2.1 # Seconds to wait for a caget from the scope to return
-SIMULATION = True
-DIAG_FILE_LOCATION = "./diag_files/test/"
+SIMULATION = False
+DIAG_FILE_LOCATION = "./diag_files/180830/"
 AWG_PREFIX = "AWG"
-DEFAULT_SCOPE_PV="SCOPE:CH2:ReadWaveform"
+DEFAULT_SCOPE_PV="CO-SCOPE-2:CH2:ReadWaveform"
 NO_ERR = 0
 #########################################################################################
 
@@ -73,8 +73,8 @@ class SetupFrame(wx.Frame):
         self.target_preview_button = wx.BitmapButton(self, wx.ID_ANY, wx.Bitmap("./gui_files/preview.png", wx.BITMAP_TYPE_ANY))
         self.save_trace_button = wx.BitmapButton(self, wx.ID_ANY, wx.Bitmap("./gui_files/Save.png", wx.BITMAP_TYPE_ANY))
         self.scope_pv_szr_staticbox = wx.StaticBox(self, wx.ID_ANY, "Scope PV")
-        self.scope_start_text_ctrl = wx.TextCtrl(self, wx.ID_ANY, "290", style=wx.TE_CENTRE)
-        self.scope_length_text_control = wx.TextCtrl(self, wx.ID_ANY, "410", style=wx.TE_CENTRE)
+        self.scope_start_text_ctrl = wx.TextCtrl(self, wx.ID_ANY, "186", style=wx.TE_CENTRE)
+        self.scope_length_text_control = wx.TextCtrl(self, wx.ID_ANY, "256", style=wx.TE_CENTRE)
         self.scope_slice_sizer_staticbox = wx.StaticBox(self, wx.ID_ANY, "Start point / length")
         self.tgt_src_cb = wx.ComboBox(self, wx.ID_ANY, choices=["File", "Library"], style=wx.CB_READONLY)
         self.src_cb_szr_staticbox = wx.StaticBox(self, wx.ID_ANY, "Target source")
@@ -567,7 +567,8 @@ class LoopFrame(wx.Frame):
 
             else: 
                 awg_now = self.awg.get_normalised_shape()
-                awg_next = awg_now[:self.num_points] * self.correction_factor
+		awg_now = awg_now[:self.num_points]
+                awg_next = awg_now * self.correction_factor
                 awg_next[self.target==0]=0 # If the target point is zero, set the AWG to zero directly
                 awg_next_norm = awg_next/np.amax(awg_next)
                 
