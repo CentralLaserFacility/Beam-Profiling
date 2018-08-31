@@ -6,6 +6,7 @@ DIAG_FILE_LOCATION = "./diag_files/180830/"
 AWG_PREFIX = "AWG"
 DEFAULT_SCOPE_PV="CO-SCOPE-2:CH2:ReadWaveform"
 PAUSE_BETWEEN_AWG_WRITE = 0.3
+LIBRARY_FILES_LOCATION = "./curve_library/"
 NO_ERR = 0
 #########################################################################################
 

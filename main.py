@@ -7,6 +7,7 @@
 # Stuff remaining to be done:
 #   - Validate entries for all the user defined numbers in the GUI
 #   - Add config files so that fields are popluated with previous values and setups can be saved/loaded
+#   - Set up the library file function
 #########################################################################################
 
 from header import DIAG_FILE_LOCATION
