@@ -232,7 +232,8 @@ class Curve:
        
         if do_bkg:
             # value of "bkg" should be an instance of Curve
-            #self._processed = self._processed - val_bkg.get_raw()
+            #print "Sizes %d %d" % (np.size(self._processed), np.size(val_bkg.get_raw()) )
+            self._processed = self._processed - val_bkg.get_raw()
             pass
         if do_crop:
             self._processed = self._processed[val_crop[0]:val_crop[0+1]]

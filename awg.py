@@ -79,6 +79,7 @@ class  Awg(object):
             i = len(points)
             while i < len(self.wf):
                 if self.wf[i] != 0:
+                    print "Setting point %d to zero" % i
                     epics.caput(self.prefix + ":_SetSample" + str(i) + "_do",0)
                     time.sleep(PAUSE_BETWEEN_AWG_WRITE)
                 i+=1
