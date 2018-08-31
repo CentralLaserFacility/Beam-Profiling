@@ -1,7 +1,6 @@
-import epics
-import time
-import math
+import epics, time, math
 import numpy as np
+from header import PAUSE_BETWEEN_AWG_WRITE
 
 class  Awg(object):
 
@@ -24,6 +23,7 @@ class  Awg(object):
         self._read_current_shape()
         return self.wf
 
+
     def get_normalised_shape(self):
         self._read_current_shape()
         return self.nwf
@@ -39,8 +39,8 @@ class  Awg(object):
     def get_dac(self):
        return self.dac
 
-    def modify_point(self, i, val):
 
+    def modify_point(self, i, val):
         incr = 100.0 * math.fabs(val - self.wf[i])/float(self.dac)
 
         if(incr >= self.max_incr):
@@ -59,14 +59,7 @@ class  Awg(object):
         epics.caput(name,val)
 
 
-    def multiply_point_by_point(self, prange, multiplier):
-        for i in prange:
-            val = int(self.nwf[i] * multiplier * self.dac)   
-            self.modify_point(i,val)
-            time.sleep(1)
-
-
-    def apply_curve_point_by_point(self, points):
+    def apply_curve_point_by_point(self, points, zero_to_end=False):
 
         if (len(points) != self.pulse_size):
             print "Error: size of input list is " + len(points) + ". Expecting " + self.pulse_size 
@@ -77,7 +70,22 @@ class  Awg(object):
            if val > self.dac: continue
            self.modify_point(i, val)
            #print "simulation - point "+ str(i) + " - value " + str(val) 
-           time.sleep(0.3)
+           time.sleep(PAUSE_BETWEEN_AWG_WRITE)
            #raw_input("continue")
 
+        # If requested, zero anything outside the current range of pulse shaping algorithm
+        # Not concerned about changed > max % change here as we're going to zero.
+        if zero_to_end == True:
+            i = len(points)
+            while i < len(self.wf):
+                if self.wf[i] != 0:
+                    epics.caput(self.prefix + ":_SetSample" + str(i) + "_do",0)
+                    time.sleep(PAUSE_BETWEEN_AWG_WRITE)
+                i+=1
+
+    def pause_scanning_PVS(self):
+        epics.caput(self.prefix + '_SelScanDisable', 1)
+
+    def start_scanning_PVS(self):
+        epics.caput(self.prefix + '_SelScanDisable', 0)
     
