@@ -84,8 +84,8 @@ class  Awg(object):
                 i+=1
 
     def pause_scanning_PVS(self):
-        epics.caput(self.prefix + '_SelScanDisable', 1)
+        epics.caput(self.prefix + ':_SelScanDisable', 1)
 
     def start_scanning_PVS(self):
-        epics.caput(self.prefix + '_SelScanDisable', 0)
+        epics.caput(self.prefix + ':_SelScanDisable', 0)
     
