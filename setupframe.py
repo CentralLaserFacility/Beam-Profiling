@@ -307,11 +307,13 @@ class SetupFrame(wx.Frame):
         num_to_average = int(self.trc_avg.GetValue())        
         datas=[]
         i=0
-        while i < num_to_average:
+        prog = wx.ProgressDialog("Getting scope data", "Reading trace 1", num_to_average)
+        while i < num_to_average:            
             data = epics.caget(self.scope_pv_name)
             datas.append(data)
             time.sleep(SCOPE_WAIT_TIME)
             i+=1
+            prog.Update(i,"Reading trace %d" % (i))
         result = np.average(np.array(datas),axis=0)
         self.cTrace = Curve(curve_array = result, name = 'Scope')
 
@@ -329,6 +331,9 @@ class SetupFrame(wx.Frame):
 
         # Reload curves
         bkg_loaded = self.load('bkg')
+        if bkg_loaded != NO_ERR:
+            self.show_load_curves_error()
+            return 
         if self.tgt_src_cb.GetSelection() == 0:
             target_curve = self.cTargetFile
             target_loaded = self.load('tgt_file')
@@ -338,7 +343,7 @@ class SetupFrame(wx.Frame):
         
         # Get the latest date for the feeback curve
         if SIMULATION:
-            start_curve = Curve(curve_array = 0.5*np.ones(1000))
+            start_curve = Curve(curve_array = 0.5*np.ones(np.size(self.cBackground.get_raw())))
             start_curve.process('clip','norm',bkg=self.cBackground, 
                 crop = cropping , resample = num_points)
         else:
@@ -356,9 +361,12 @@ class SetupFrame(wx.Frame):
             max_percent_change = int(self.max_change_txt_ctrl.GetValue())
             self.run_loop(start_curve, target_curve, gain, iterations, tolerance, max_percent_change)
         else:
-            err = wx.MessageDialog(self, "Couldn't open the background and/or target files", caption="File open error",
-              style=wx.ICON_ERROR)
-            err.ShowModal()
+            self.show_load_curves_error()
+            
+    def show_load_curves_error(self):        
+        err = wx.MessageDialog(self, "Couldn't open the background and/or target files", caption="File open error",
+            style=wx.ICON_ERROR)
+        err.ShowModal()
 
 
     def run_loop(self, start_curve, target_curve, gain, iterations, tolerance, max_percent_change):
