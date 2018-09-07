@@ -12,8 +12,11 @@ from curve import Curve
 
 class LoopFrame(wx.Frame):
     ''' Class to run the loop. It launches a new window'''
+
+    _title = "Loop simulation" if SIMULATION == True else "Loop" 
+
     def __init__(self, parent,start_curve, target_curve, gain, iterations, tolerance, max_percent_change):
-        wx.Frame.__init__(self, parent, size=(1000,400), title='Loop')
+        wx.Frame.__init__(self, parent, size=(1000,400), title=self._title)
         self.parent = parent
         self.num_points = int(self.parent.points_text_ctrl.GetValue())
         self.current=start_curve.get_processed()
@@ -214,7 +217,7 @@ class LoopFrame(wx.Frame):
             data = epics.caget(self.parent.scope_pv_name)
             time.sleep(SCOPE_WAIT_TIME)
         else:
-            data = self._resample(self.current, 1000)
+            data = self._resample(self.current, np.alen(self.parent.cBackground.get_raw))
         
         feedback_curve = Curve(curve_array = data, name = 'Current')
         feedback_curve.process('clip','norm',bkg=self.parent.cBackground, 

@@ -28,7 +28,6 @@ class SetupFrame(wx.Frame):
         self.target_file_sizer_staticbox = wx.StaticBox(self.target_choice_panel, wx.ID_ANY, "Target file")
         self.trace_preview_button = wx.BitmapButton(self, wx.ID_ANY, wx.Bitmap("./gui_files/preview.png", wx.BITMAP_TYPE_ANY))
         self.library_choice_panel = wx.Panel(self, wx.ID_ANY)
-        #self.library_combo_box = wx.ComboBox(self.library_choice_panel, wx.ID_ANY, choices=["Square pule, 10ns", "Square pulse, 7 ns", "Some other pulse shape..."], style=wx.CB_READONLY | wx.CB_SORT)
         self.library_combo_box = wx.ComboBox(self.library_choice_panel, wx.ID_ANY, choices=[], style=wx.CB_READONLY | wx.CB_SORT)
         self.library_file_sizer_staticbox = wx.StaticBox(self.library_choice_panel, wx.ID_ANY, "Pulse shape library")
         self.scope_pv_text_ctrl = wx.TextCtrl(self, wx.ID_ANY, DEFAULT_SCOPE_PV, style=wx.TE_PROCESS_ENTER)
@@ -42,7 +41,7 @@ class SetupFrame(wx.Frame):
         self.scope_start_text_ctrl = wx.TextCtrl(self, wx.ID_ANY, "186", style=wx.TE_CENTRE)
         self.scope_length_text_control = wx.TextCtrl(self, wx.ID_ANY, "256", style=wx.TE_CENTRE)
         self.scope_slice_sizer_staticbox = wx.StaticBox(self, wx.ID_ANY, "Start point / length")
-        self.tgt_src_cb = wx.ComboBox(self, wx.ID_ANY, choices=["File", "Library"], style=wx.CB_READONLY)
+        self.tgt_src_cb = wx.ComboBox(self, wx.ID_ANY, choices=["Library", "File"], style=wx.CB_READONLY)
         self.src_cb_szr_staticbox = wx.StaticBox(self, wx.ID_ANY, "Target source")
         self.points_text_ctrl = wx.TextCtrl(self, wx.ID_ANY, "82", style=wx.TE_CENTRE)
         self.point_szr_staticbox = wx.StaticBox(self, wx.ID_ANY, "Num points")
@@ -85,7 +84,8 @@ class SetupFrame(wx.Frame):
 
     def __set_properties(self):
         # begin wxGlade: SetupFrame.__set_properties
-        self.SetTitle("Beam Profiling")
+        _title = "Beam profiling simulation" if SIMULATION == True else "Beam Profiling"
+        self.SetTitle(_title)
         self.SetSize((1049, 447))
         self.bkg_browse_button.SetSize(self.bkg_browse_button.GetBestSize())
         self.bkg_browse_button.SetDefault()
@@ -293,7 +293,6 @@ class SetupFrame(wx.Frame):
             self.cTargetFile.process('clip','norm', resample = num_pts)
         elif reason == 'library':
             pathname = LIBRARY_FILES_LOCATION + self.library_combo_box.GetStringSelection() + ".curve"
-            print pathname
             err = self.cTargetFile.load(num_points=num_pts, trim_method = 'resample', data = str(pathname))
             self.cTargetFile.process('clip','norm', resample = num_pts)
         elif reason == 'trace':
