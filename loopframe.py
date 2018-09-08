@@ -153,18 +153,18 @@ class LoopFrame(wx.Frame):
 
     def run_loop(self):    
         iterations = self.iterations
-        gain = self.gain
         self.draw_plots(self.rms_error(),self.i)
         wx.SafeYield(self) # Lets the plot update
         
         while self.i<iterations and self.rms_error()>=self.tolerance and not self.user_end:           
+            
             self.correction_factor = np.nan_to_num(self.target/self.current)
-            self.correction_factor = (self.correction_factor - 1) * gain + 1
+            self.correction_factor = (self.correction_factor - 1) * self.gain + 1
             
             if SIMULATION: 
                 awg_now = self.current
                 awg_next = self.current * self.correction_factor
-
+               
                 self.draw_plots(self.rms_error(),self.i)
                 cont = self.draw_awg_plots(self.current, awg_next) 		             
                 wx.SafeYield(self)
@@ -180,7 +180,7 @@ class LoopFrame(wx.Frame):
                 
 
                 if self.save_diag_files:
-                    self.save_files(DIAG_FILE_LOCATION, awg_now, awg_next)
+                    self.save_files(DIAG_FILE_LOCATION, awg_now)
                 
                 self.update_feedback_curve()
 
@@ -189,6 +189,7 @@ class LoopFrame(wx.Frame):
                 awg_now = awg_now[:self.num_points]
                 awg_next = awg_now * self.correction_factor
                 awg_next[self.target==0]=0 # If the target point is zero, set the AWG to zero directly
+                awg_next[np.logical_and(self.target!=0,awg_now==0)]=0.1 #If the AWG point is zero, but the target isn't, bump the AWG to 0.1
                 awg_next_norm = awg_next/np.amax(awg_next)
                 
                 self.draw_plots(self.rms_error(),self.i)
@@ -211,7 +212,6 @@ class LoopFrame(wx.Frame):
                 self.awg.start_scanning_PVS() #Restart the comms now finished writing
                 self.update_feedback_curve()
 
-   
             self.i+=1
         self.draw_plots(self.rms_error(),self.i)
         wx.SafeYield(self) # Needed to allow processing events to stop loop and let plot update

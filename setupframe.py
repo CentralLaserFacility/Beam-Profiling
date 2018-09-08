@@ -248,7 +248,6 @@ class SetupFrame(wx.Frame):
     def on_browse(self, event):  # wxGlade: SetupFrame.<event_handler>
 
         frame = wx.Frame(None, -1, "Load a curve")
-        frame.SetDimensions(0,0,200,50)
 
         with wx.FileDialog(frame, "Load Curve", 
                     style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST) as fileDialog:
