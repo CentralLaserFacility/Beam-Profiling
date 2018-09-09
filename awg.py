@@ -1,6 +1,7 @@
 import epics, time, math
 import numpy as np
-from header import PAUSE_BETWEEN_AWG_WRITE
+from datetime import datetime
+from header import PAUSE_BETWEEN_AWG_WRITE, get_message_time
 
 class  Awg(object):
 
@@ -11,7 +12,7 @@ class  Awg(object):
     #    self._read_current_shape()
 
     def _read_current_shape(self):
-        print("read current shape...")
+        print(get_message_time()+"Read current shape...")
         epics.caput(self.prefix + ':ReadWaveform.PROC', 1)
         time.sleep(2)
         self.wf = epics.caget(self.prefix + ':ReadWaveform_do')
@@ -44,7 +45,7 @@ class  Awg(object):
         incr = 100.0 * math.fabs(val - self.wf[i])/float(self.dac)
 
         if(incr >= self.max_incr):
-            print("Error: increment too big: %.1f percent of DAC - max is %.1f" % (incr, self.max_incr))
+            print(get_message_time()+"Error: increment too big: %.1f percent of DAC - max is %.1f" % (incr, self.max_incr))
 
             if (val - self.wf[i] < 0):
                 val = self.wf[i] - (self.max_incr/100.0) * self.dac
@@ -53,7 +54,7 @@ class  Awg(object):
 
             incr = 100.0 * math.fabs(val - self.wf[i])/float(self.dac)
 
-        print("Modifying point %d from %f to %f : %.1f percent of DAC" % (i, self.wf[i], val, incr))
+        print(get_message_time()+"Modifying point %d from %f to %f : %.1f percent of DAC" % (i, self.wf[i], val, incr))
         name = self.prefix + ":_SetSample" + str(i) + "_do"
 
         epics.caput(name,val)
@@ -62,7 +63,7 @@ class  Awg(object):
     def apply_curve_point_by_point(self, points, zero_to_end=False):
 
         if (len(points) != self.pulse_size):
-            print("Error: size of input list is " + len(points) + ". Expecting " + self.pulse_size) 
+            print(get_message_time()+"Error: size of input list is " + len(points) + ". Expecting " + self.pulse_size) 
             return
 
         for i, point in enumerate(points):
@@ -79,7 +80,7 @@ class  Awg(object):
             i = len(points)
             while i < len(self.wf):
                 if self.wf[i] != 0:
-                    print("Setting point %d to zero" % i)
+                    print(get_message_time()+"Setting point %d to zero" % i)
                     epics.caput(self.prefix + ":_SetSample" + str(i) + "_do",0)
                     time.sleep(PAUSE_BETWEEN_AWG_WRITE)
                 i+=1
@@ -90,3 +91,5 @@ class  Awg(object):
     def start_scanning_PVS(self):
         epics.caput(self.prefix + ':_SelScanDisable', 0)
     
+    def get_message_time(self):
+        return datetime.now().strftime("%b_%d_%H:%M.%S")+": "

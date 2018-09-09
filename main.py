@@ -2,12 +2,11 @@
 # 
 # Run closed loop pulse-shaping on the AWG. Feedback comes from a waveform PV from a
 # scope. To test the software without hardware connected set the SIMULATION flag to TRUE
-# in the header.py file
+# in the config.ini file
 #
 # Stuff remaining to be done:
 #   - Validate entries for all the user defined numbers in the GUI
-#   - Add config files so that fields are popluated with previous values and setups can be saved/loaded
-#   - Set up the library file function
+#   - Add config files so that fields are populated with previous values and setups can be saved/loaded
 #########################################################################################
 import os, wx
 

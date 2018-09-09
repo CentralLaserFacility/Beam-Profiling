@@ -89,10 +89,10 @@ class Curve:
             with wx.FileDialog(frame, "Load Curve", 
                             style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST) as fileDialog:
 
-                if fileDialog.ShowModal() == wx.ID_CANCEL:
-                    return -1   # Quit with no file loaded
-
+                fileDialog.ShowModal() 
+                if fileDialog == wx.ID_CANCEL: return    # Quit with no curve loaded
                 pathname = fileDialog.GetPath()
+            frame.Destroy()
 
         try:
             self._curve = np.loadtxt(pathname)
@@ -153,9 +153,8 @@ class Curve:
             with wx.FileDialog(frame, "Save Curve", 
                             style=wx.FD_SAVE) as fileDialog:
 
-                if fileDialog.ShowModal() == wx.ID_CANCEL:
-                    return    # Quit with no save
-
+                fileDialog.ShowModal() 
+                if fileDialog == wx.ID_CANCEL: return    # Quit with no save
                 pathname = fileDialog.GetPath()
 
         try:
@@ -166,6 +165,7 @@ class Curve:
 
         except:
             print("Couldn't save the file")
+        frame.Destroy()
 
     def process(self, *args, **kwargs):
         """

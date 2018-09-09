@@ -38,8 +38,8 @@ class SetupFrame(wx.Frame):
         self.target_preview_button = wx.BitmapButton(self, wx.ID_ANY, wx.Bitmap("./gui_files/preview.png", wx.BITMAP_TYPE_ANY))
         self.save_trace_button = wx.BitmapButton(self, wx.ID_ANY, wx.Bitmap("./gui_files/Save.png", wx.BITMAP_TYPE_ANY))
         self.scope_pv_szr_staticbox = wx.StaticBox(self, wx.ID_ANY, "Scope PV")
-        self.scope_start_text_ctrl = wx.TextCtrl(self, wx.ID_ANY, "186", style=wx.TE_CENTRE)
-        self.scope_length_text_control = wx.TextCtrl(self, wx.ID_ANY, "256", style=wx.TE_CENTRE)
+        self.scope_start_text_ctrl = wx.TextCtrl(self, wx.ID_ANY, "273", style=wx.TE_CENTRE)
+        self.scope_length_text_control = wx.TextCtrl(self, wx.ID_ANY, "410", style=wx.TE_CENTRE)
         self.scope_slice_sizer_staticbox = wx.StaticBox(self, wx.ID_ANY, "Start point / length")
         self.tgt_src_cb = wx.ComboBox(self, wx.ID_ANY, choices=["Library", "File"], style=wx.CB_READONLY)
         self.src_cb_szr_staticbox = wx.StaticBox(self, wx.ID_ANY, "Target source")
@@ -252,8 +252,8 @@ class SetupFrame(wx.Frame):
         with wx.FileDialog(frame, "Load Curve", 
                     style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST) as fileDialog:
 
-            if fileDialog.ShowModal() == wx.ID_CANCEL:
-                return    # Quit with no file loaded
+            fileDialog.ShowModal()
+            if fileDialog == wx.ID_CANCEL: return
 
         pathname = fileDialog.GetPath()
 
@@ -261,6 +261,7 @@ class SetupFrame(wx.Frame):
             self.bkg_path_text_ctrl.SetValue(pathname)
         elif event.GetEventObject().GetName() == 'tgt_browse':
             self.target_path_text_ctrl.SetValue(pathname)
+        frame.Destroy()
             
         
     def on_preview(self, event):  # wxGlade: SetupFrame.<event_handler>   
