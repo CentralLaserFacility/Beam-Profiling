@@ -87,6 +87,7 @@ class SetupFrame(wx.Frame):
         _title = "Beam profiling simulation" if SIMULATION == True else "Beam Profiling"
         self.SetTitle(_title)
         self.SetSize((1049, 447))
+        self.SetBackgroundColour('#f1f1f1')
         self.bkg_browse_button.SetSize(self.bkg_browse_button.GetBestSize())
         self.bkg_browse_button.SetDefault()
         self.bkg_preview_button.SetSize(self.bkg_preview_button.GetBestSize())
