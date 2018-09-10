@@ -254,8 +254,7 @@ class SetupFrame(wx.Frame):
 
             fileDialog.ShowModal()
             if fileDialog == wx.ID_CANCEL: return
-
-        pathname = fileDialog.GetPath()
+            pathname = fileDialog.GetPath()
 
         if event.GetEventObject().GetName() == 'bkg_browse':
             self.bkg_path_text_ctrl.SetValue(pathname)

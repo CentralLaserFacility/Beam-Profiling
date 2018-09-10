@@ -1,5 +1,5 @@
 import numpy as np
-import wx
+import wx, six
 import matplotlib.pyplot as plt
 
 
@@ -90,8 +90,7 @@ class Curve:
 
                 fileDialog.ShowModal()
                 if fileDialog == wx.ID_CANCEL: return
-
-            pathname = fileDialog.GetPath()
+                pathname = fileDialog.GetPath()
             frame.Destroy()
 
         try:
@@ -216,7 +215,7 @@ class Curve:
             if arg not in supported_args:
                 print("Unrecognised argument: %s" % arg)
 
-        for key, value in kwargs.iteritems():
+        for key, value in six.iteritems(kwargs):
             if key == "bkg":
                 do_bkg = True
                 val_bkg = value
@@ -344,7 +343,7 @@ class BkgCurve(Curve):
             if arg not in supported_args:
                 print("Unrecognised argument: %s" % arg)
 
-        for key, value in kwargs.iteritems():
+        for key, value in six.iteritems(kwargs):
             if key == "bkg":
                 print("Ignoring keyword: bkg. Background curves don't support background subtraction")
             if key == "crop":
@@ -422,7 +421,7 @@ class TargetCurve(Curve):
             if arg not in supported_args:
                 print("Unrecognised argument: %s" % arg)
 
-        for key, value in kwargs.iteritems():
+        for key, value in six.iteritems(kwargs):
             if key == "bkg":
                 print("Ignoring keyword: bkg. Target curves don't support background subtraction")
             if key == "crop":
