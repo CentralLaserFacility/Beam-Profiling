@@ -84,14 +84,14 @@ class Curve:
             #app = wx.App()
         
             frame = wx.Frame(None, -1, "Load a curve")
-            frame.SetDimensions(0,0,200,50)
 
             with wx.FileDialog(frame, "Load Curve", 
-                            style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST) as fileDialog:
+                    style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST) as fileDialog:
 
-                fileDialog.ShowModal() 
-                if fileDialog == wx.ID_CANCEL: return    # Quit with no curve loaded
-                pathname = fileDialog.GetPath()
+                fileDialog.ShowModal()
+                if fileDialog == wx.ID_CANCEL: return
+
+            pathname = fileDialog.GetPath()
             frame.Destroy()
 
         try:

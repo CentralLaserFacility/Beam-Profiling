@@ -113,17 +113,17 @@ class LoopFrame(wx.Frame):
         self.corr_plot_data = self.correction_axis.plot(self.correction_factor, label = 'Correction')[0]
         self.curve_plot_data = self.curve_axis.plot(self.current_output, label = 'Current')[0]
         self.target_plot_data = self.curve_axis.plot(self.target, label = 'Target')[0]
-        self.curve_axis.legend()
+        self.curve_axis.legend(loc=8, prop={'size':8})
         self.curve_axis.set_ybound(lower=-0.1, upper=1.2)
         self.i_label = self.curve_axis.text(0.05,0.95, "Iteration: ",transform=self.curve_axis.transAxes, backgroundcolor='white')
         self.rms_label = self.curve_axis.text(0.05,0.9, "RMS: ",transform=self.curve_axis.transAxes, backgroundcolor='white')
         if not SIMULATION:
-            awg_start = self.awg.get_normalised_shape()[:82]
+            awg_start = self.awg.get_normalised_shape()[:self.num_points]
         else: 
             awg_start = self.correction_factor
         self.awg_now_plot_data = self.awg_axis.plot(awg_start, label = 'AWG current')[0]
         self.awg_next_plot_data = self.awg_axis.plot(awg_start, label = 'AWG next')[0]
-        self.awg_axis.legend()
+        self.awg_axis.legend(loc=8, prop={'size':8})
         self.awg_axis.set_ybound(lower = -0.1, upper = 1.2)
 
 
