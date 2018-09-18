@@ -140,8 +140,15 @@ class LoopFrame(wx.Frame):
         self.awg_next_plot_data.set_ydata(awg_next[:self.num_points])
         self.canvas.draw()
         
-        proceed = wx.MessageDialog(self, "Apply the next correction?", style=wx.YES_NO|wx.YES_DEFAULT)
-        return 1 if proceed.ShowModal()==wx.ID_YES else 0
+        #proceed = wx.MessageDialog(self, "Apply the next correction?", style=wx.YES_NO|wx.YES_DEFAULT)
+        proceed = wx.TextEntryDialog(self, "Gain for next iteration?","Apply the next correction?")
+        proceed.SetValue(str(self.gain))
+        #return 1 if proceed.ShowModal()==wx.ID_YES else 0
+        if proceed.ShowModal() == wx.ID_OK:
+            self.gain = float(proceed.GetValue())
+            return 1
+        else:
+            return 0  
              
 
     def run_loop(self):    
@@ -233,15 +240,15 @@ class LoopFrame(wx.Frame):
         p = np.interp(ip, im, data)
         return p
 
-    def save_files(self, location, awg_now, awg_next):
+    
+    def save_files(self, location, awg_now):
 
-        fileroot=datetime.now().strftime("%Y_%d_%m_%Hh%M")
+        fileroot=datetime.now().strftime("%Y_%m_%d_%Hh%M")
 
         if self.i == 0:
             np.savetxt(location + fileroot + '_target.txt', self.target)
             np.savetxt(location + fileroot + '_background.txt', self.parent.cBackground.get_raw())
-            np.savetxt(location + fileroot + '_initial_AWG_shape.txt', awg_now)
         
-        np.savetxt(location + fileroot + '_i_' + str(self.i) + '_applied_AWG_shape.txt', awg_next)
-        np.savetxt(location + fileroot + '_i_' + str(self.i) + '_applied_correction.txt', self.correction_factor)
-        np.savetxt(location + fileroot + '_i_' + str(self.i) + '_scope_trace.txt', self.current)
+        np.savetxt((location + fileroot + '_i_%0.5d_AWG_shape.txt' % self.i), awg_now)
+        np.savetxt((location + fileroot + '_i_%0.5d_g_%.2f_correction.txt' % (self.i+1,self.gain)), self.correction_factor)
+        np.savetxt((location + fileroot + '_i_%0.5d_scope_trace.txt' % self.i), self.current)

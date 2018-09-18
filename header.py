@@ -2,10 +2,10 @@
 #Any constants that are needed
 SCOPE_WAIT_TIME = 2.1 # Seconds to wait for a caget from the scope to return
 SIMULATION = True
-DIAG_FILE_LOCATION = "./diag_files/180830/"
+DIAG_FILE_LOCATION = "./diag_files/"
 AWG_PREFIX = "AWG"
 DEFAULT_SCOPE_PV="CO-SCOPE-2:CH2:ReadWaveform"
-PAUSE_BETWEEN_AWG_WRITE = 0.3
+PAUSE_BETWEEN_AWG_WRITE = 0.6
 LIBRARY_FILES_LOCATION = "./curve_library/"
 NO_ERR = 0
 #########################################################################################
