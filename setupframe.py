@@ -226,7 +226,7 @@ class SetupFrame(wx.Frame):
         if self.scope_pv.connected:
             self.scope_pv_text_ctrl.SetBackgroundColour('#0aff05')
         else:
-            self.scope_pv_text_ctrl.SetBackgroundColour('Red')
+            self.scope_pv_text_ctrl.SetBackgroundColour('#c800c8')
         self.scope_pv_text_ctrl.Refresh()
         event.Skip()
 
@@ -237,7 +237,7 @@ class SetupFrame(wx.Frame):
         if conn:
             self.scope_pv_text_ctrl.SetBackgroundColour('#0aff05')
         else:
-            self.scope_pv_text_ctrl.SetBackgroundColour('Red')
+            self.scope_pv_text_ctrl.SetBackgroundColour('#c800c8')
         self.scope_pv_text_ctrl.Refresh()
 
 
@@ -333,7 +333,7 @@ class SetupFrame(wx.Frame):
         if bkg_loaded != NO_ERR:
             self.show_load_curves_error()
             return 
-        if self.tgt_src_cb.GetSelection() == 0:
+        if self.tgt_src_cb.GetSelection() == 1:
             target_curve = self.cTargetFile
             target_loaded = self.load('tgt_file')
         else:

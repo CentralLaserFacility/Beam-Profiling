@@ -169,19 +169,20 @@ class LoopFrame(wx.Frame):
                 cont = self.draw_awg_plots(self.current, awg_next) 		             
                 wx.SafeYield(self)
                 
+                #Apply correction
+                self.current = self.current * self.correction_factor
+                self.current[self.target==0]=0
+                
                 if not cont: 
                     print "Quitting loop: AWG curve will not be applied\n"
                     break
                 time.sleep(1)
                 
-                #Apply correction
-                self.current = self.current * self.correction_factor
-                self.current[self.target==0]=0
 
                 if self.save_diag_files:
                     self.save_files(DIAG_FILE_LOCATION, awg_now, awg_next)
                 
-                self.update_feedback_curve()
+                #self.update_feedback_curve()
 
             else: 
                 awg_now = self.awg.get_normalised_shape()
@@ -224,7 +225,9 @@ class LoopFrame(wx.Frame):
             data = epics.caget(self.parent.scope_pv_name)
             time.sleep(SCOPE_WAIT_TIME)
         else:
-            data = self._resample(self.current, np.alen(self.parent.cBackground.get_raw))
+            data = self._resample(self.current, np.size(self.parent.cBackground.get_raw()))
+            cropping = (0,1000)
+        
         
         feedback_curve = Curve(curve_array = data, name = 'Current')
         feedback_curve.process('clip','norm',bkg=self.parent.cBackground, 
