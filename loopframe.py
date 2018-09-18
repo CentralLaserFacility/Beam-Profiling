@@ -198,18 +198,19 @@ class LoopFrame(wx.Frame):
                 if not cont: 
                     print "Quitting loop: AWG curve will not be applied\n"
                     break
+
+                if self.save_diag_files:
+                    self.save_files(DIAG_FILE_LOCATION, awg_now)
                 
-                self.awg.pause_scanning_PVS() #Stop IDIL/AWG comms while writing curve
-                if self.i==1:
+                #self.awg.pause_scanning_PVS() #Stop IDIL/AWG comms while writing curve
+                if self.i==0:
                     # On the first pass only, set any AWG samples outside the pulse to zero
                     self.awg.apply_curve_point_by_point(awg_next_norm, zero_to_end=True)
                 else:
                     self.awg.apply_curve_point_by_point(awg_next_norm, zero_to_end=False)
-                self.awg.start_scanning_PVS() #Restart the comms now finished writing
+                #self.awg.start_scanning_PVS() #Restart the comms now finished writing
                 self.update_feedback_curve()
 
-                if self.save_diag_files:
-                    self.save_files(DIAG_FILE_LOCATION, awg_now, awg_next_norm)
    
             self.i+=1
         self.draw_plots(self.rms_error(),self.i)
