@@ -285,7 +285,7 @@ class Curve:
         plt.draw()
     
     def print_size(self):
-        print "Curve %s size: %d" % (self.name(), np.alen(self.get_raw()))
+        print("Curve %s size: %d" % (self.name(), np.alen(self.get_raw())))
 
         
 class BkgCurve(Curve):
@@ -346,7 +346,7 @@ class BkgCurve(Curve):
 
         for key, value in kwargs.iteritems():
             if key == "bkg":
-                print "Ignoring keyword: bkg. Background curves don't support background subtraction"
+                print("Ignoring keyword: bkg. Background curves don't support background subtraction")
             if key == "crop":
                 do_crop = True
                 val_crop = value
@@ -424,7 +424,7 @@ class TargetCurve(Curve):
 
         for key, value in kwargs.iteritems():
             if key == "bkg":
-                print "Ignoring keyword: bkg. Target curves don't support background subtraction"
+                print("Ignoring keyword: bkg. Target curves don't support background subtraction")
             if key == "crop":
                 do_crop = True
                 val_crop = value

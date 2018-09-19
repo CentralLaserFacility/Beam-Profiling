@@ -174,7 +174,7 @@ class LoopFrame(wx.Frame):
                 self.current[self.target==0]=0
                 
                 if not cont: 
-                    print "Quitting loop: AWG curve will not be applied\n"
+                    print("Quitting loop: AWG curve will not be applied\n")
                     break
                 time.sleep(1)
                 
@@ -182,7 +182,7 @@ class LoopFrame(wx.Frame):
                 if self.save_diag_files:
                     self.save_files(DIAG_FILE_LOCATION, awg_now, awg_next)
                 
-                #self.update_feedback_curve()
+                self.update_feedback_curve()
 
             else: 
                 awg_now = self.awg.get_normalised_shape()
@@ -196,26 +196,26 @@ class LoopFrame(wx.Frame):
                 wx.SafeYield(self)
               
                 if not cont: 
-                    print "Quitting loop: AWG curve will not be applied\n"
+                    print("Quitting loop: AWG curve will not be applied\n")
                     break
 
                 if self.save_diag_files:
                     self.save_files(DIAG_FILE_LOCATION, awg_now)
                 
-                #self.awg.pause_scanning_PVS() #Stop IDIL/AWG comms while writing curve
+                self.awg.pause_scanning_PVS() #Stop IDIL/AWG comms while writing curve
                 if self.i==0:
                     # On the first pass only, set any AWG samples outside the pulse to zero
                     self.awg.apply_curve_point_by_point(awg_next_norm, zero_to_end=True)
                 else:
                     self.awg.apply_curve_point_by_point(awg_next_norm, zero_to_end=False)
-                #self.awg.start_scanning_PVS() #Restart the comms now finished writing
+                self.awg.start_scanning_PVS() #Restart the comms now finished writing
                 self.update_feedback_curve()
 
    
             self.i+=1
         self.draw_plots(self.rms_error(),self.i)
         wx.SafeYield(self) # Needed to allow processing events to stop loop and let plot update
-        print "Loop ended"
+        print("Loop ended")
     
     def update_feedback_curve(self):
         start = int(self.parent.scope_start_text_ctrl.GetValue())

@@ -9,10 +9,11 @@
 #   - Add config files so that fields are popluated with previous values and setups can be saved/loaded
 #   - Set up the library file function
 #########################################################################################
+import os, wx
 
 from header import DIAG_FILE_LOCATION
 from setupframe import SetupFrame
-import os, wx
+
 
 # Create folder for diagnostic files if necessary
 if not os.path.exists(DIAG_FILE_LOCATION):
