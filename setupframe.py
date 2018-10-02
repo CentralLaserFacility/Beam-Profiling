@@ -16,7 +16,7 @@ from epics.wx import EpicsFunction, DelayedEpicsCallback
 class SetupFrame(wx.Frame):
     def __init__(self, *args, **kwds):
         # begin wxGlade: SetupFrame.__init__
-        wx.Frame.__init__(self, *args, **kwds)
+        wx.Frame.__init__(self, *args, pos=wx.Point(50,50)) # *args, **kwds)
         self.bkg_choice_panel = wx.Panel(self, wx.ID_ANY)
         self.bkg_path_text_ctrl = wx.TextCtrl(self.bkg_choice_panel, wx.ID_ANY, "Path to background file")
         self.bkg_browse_button = wx.BitmapButton(self.bkg_choice_panel, wx.ID_ANY, wx.Bitmap("./gui_files/Open folder.png", wx.BITMAP_TYPE_ANY))

@@ -15,9 +15,18 @@ from curve import Curve
 class LoopFrame(wx.Frame):
     ''' Class to run the loop. It launches a new window'''
     _title = "Loop simulation" if SIMULATION == True else "Loop" 
+    
+    def __init__(self, parent ,start_curve, target_curve, gain, iterations, tolerance, max_percent_change):
 
-    def __init__(self, parent,start_curve, target_curve, gain, iterations, tolerance, max_percent_change):
-        wx.Frame.__init__(self, parent, size=(1000,400), title=self._title)
+        
+        parent_x, parent_y = parent.GetPosition().Get()
+        parent_height = parent.GetSize().GetHeight()
+        position = wx.Point(parent_x, parent_y+parent_height)
+        
+
+        wx.Frame.__init__(self, parent, size=(1000,400), title=self._title, pos=position)
+
+
         self.parent = parent
         self.num_points = int(self.parent.points_text_ctrl.GetValue())
         self.current_output=start_curve.get_processed()
