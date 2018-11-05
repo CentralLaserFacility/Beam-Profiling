@@ -1,4 +1,10 @@
-from header import SCOPE_WAIT_TIME, AWG_PREFIX, SIMULATION, DIAG_FILE_LOCATION, AWG_ZERO_SHIFT, get_message_time
+from header import (SCOPE_WAIT_TIME, 
+                    AWG_PREFIX, 
+                    SIMULATION, 
+                    DIAG_FILE_LOCATION, 
+                    AWG_ZERO_SHIFT,
+                    PULSE_SAFETY_FACTOR, 
+                    get_message_time)
 from awg import Awg
 import matplotlib
 matplotlib.use('WXAgg')
@@ -124,8 +130,6 @@ class LoopFrame(wx.Frame):
         self.target_plot_data = self.curve_axis.plot(self.target, label = 'Target')[0]
         self.curve_axis.legend(loc=8, prop={'size':8})
         self.curve_axis.set_ybound(lower=-0.1, upper=1.2)
-        self.i_label = self.curve_axis.text(0.05,0.95, "Iteration: ",transform=self.curve_axis.transAxes, backgroundcolor='white')
-        self.rms_label = self.curve_axis.text(0.05,0.9, "RMS: ",transform=self.curve_axis.transAxes, backgroundcolor='white')
         if not SIMULATION:
             awg_start = self.awg.get_normalised_shape()[:self.num_points]
         else: 
@@ -134,18 +138,23 @@ class LoopFrame(wx.Frame):
         self.awg_next_plot_data = self.awg_axis.plot(awg_start, label = 'AWG next')[0]
         self.awg_axis.legend(loc=8, prop={'size':8})
         self.awg_axis.set_ybound(lower = -0.1, upper = 1.2)
+        self.statusBar = wx.StatusBar(self, -1)
+        self.statusBar.SetFont(wx.Font(12, wx.DEFAULT, wx.NORMAL, wx.BOLD, 0, "Ubuntu"))
+        self.SetStatusBar(self.statusBar)
 
 
     def rms_error(self):
         return np.sqrt(np.mean(np.square(self.target - self.current_output)))
 
+    def safety_factor(self, awg_curve):
+        return 1.0/np.mean(awg_curve)
 
-    def draw_plots(self, rms = 0, i =0):
+
+    def draw_plots(self, rms = 0, i =0, safety_factor=0):
         self.corr_plot_data.set_ydata(self.correction_factor)
         self.curve_plot_data.set_ydata(self.current_output)
         self.correction_axis.set_ybound(lower=0.9*np.amin(self.correction_factor), upper=1.1*np.amax(self.correction_factor)+0.001)
-        self.i_label.set_text("Iteration: %d" % i)
-        self.rms_label.set_text("RMS: %.3f" % rms)
+        self.statusBar.SetStatusText("Iteration: {0:d}\tRMS: {1:.3f}\tSafety Factory: {2:.2f}".format(i,rms,safety_factor))
         self.canvas.draw()     
 
 
@@ -188,7 +197,7 @@ class LoopFrame(wx.Frame):
                 awg_now = self.current_output
                 awg_next = self.current_output * self.correction_factor
                
-                self.draw_plots(self.rms_error(),self.i)
+                self.draw_plots(self.rms_error(),self.i, self.safety_factor(awg_next))
                 cont = self.draw_awg_plots(self.current_output, awg_next) 		             
                 wx.SafeYield(self)
                 
@@ -220,16 +229,20 @@ class LoopFrame(wx.Frame):
                 awg_next_norm = np.clip(awg_next_norm, min_allowed, max_allowed)
 
                 
-                self.draw_plots(self.rms_error(),self.i)
+                self.draw_plots(self.rms_error(),self.i, self.safety_factor(awg_next_norm))
                 cont = self.draw_awg_plots(awg_now, awg_next_norm)
                 wx.SafeYield(self)
               
                 if not cont: 
-                    print(get_message_time()+"Quitting loop: AWG curve will not be applied")
+                    print(get_message_time()+"Quitting loop: User request. AWG curve will not be applied")
                     break
 
                 if self.save_diag_files:
                     self.save_files(DIAG_FILE_LOCATION, awg_now)
+
+                if self.safety_factor(awg_next_norm) > PULSE_SAFETY_FACTOR:
+                    print(get_message_time()+"Quitting loop: proposed curve would exceed safety factor")
+                    break
                 
                 self.awg.pause_scanning_PVS() #Stop IDIL/AWG comms while writing curve
                 if self.i==0:
@@ -241,7 +254,7 @@ class LoopFrame(wx.Frame):
                 self.update_feedback_curve()
 
             self.i+=1
-        self.draw_plots(self.rms_error(),self.i)
+        self.draw_plots(self.rms_error(),self.i, -1)
         wx.SafeYield(self) # Needed to allow processing events to stop loop and let plot update
         print(get_message_time()+"Loop ended")
     

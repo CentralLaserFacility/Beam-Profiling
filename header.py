@@ -24,6 +24,7 @@ PAUSE_BETWEEN_AWG_WRITE = config.getfloat('timing','awg_wait')
 LIBRARY_FILES_LOCATION = config.get('file_locations','curve')
 NO_ERR = config.getint('util','no_err')
 AWG_ZERO_SHIFT = config.getfloat('util', 'awg_zero_shift')
+PULSE_SAFETY_FACTOR = config.getfloat('safety', 'pulse_safety_factor')
 
 
 def get_message_time():
