@@ -15,6 +15,7 @@ import epics
 from datetime import datetime
 import matplotlib.pyplot as plt
 from curve import Curve
+from scipy.ndimage.filters import gaussian_filter1d
 
 
 
@@ -32,12 +33,13 @@ class LoopFrame(wx.Frame):
 
         wx.Frame.__init__(self, parent, size=(1000,400), title=self._title, pos=position)
 
-
         self.parent = parent
         self.num_points = int(self.parent.points_text_ctrl.GetValue())
         self.current_output=start_curve.get_processed()
         self.correction_factor = np.zeros(np.alen(self.current_output))
-        self.target=target_curve.get_processed()
+        #self.target=target_curve.get_processed()
+        self.target=gaussian_filter1d(target_curve.get_processed(), sigma=1, order=0)
+        
         self.max_percent_change = max_percent_change
         if not SIMULATION:
             self.awg = Awg(AWG_PREFIX, self.num_points , self.max_percent_change)
@@ -61,47 +63,6 @@ class LoopFrame(wx.Frame):
         self.save_diag_files = True if parent.diag_files_radio_box.GetSelection() == 0 else False
         self.Show()
         self.run_loop()
-
-
-    # def on_click(self,event):
-    #     # Allows mouse click to start/stop the loop 
-    #     if event.button == 1 and self.user_end == True:
-    #         self.user_end = False
-    #         self.run_loop()
-    #     elif event.button == 3 and self.user_end == False:
-    #         self.user_end = True
-
-    # def on_key(self,event):
-    #     # Rereads parms from the main window 
-    #     if event.key == "ctrl+r":
-    #         self.reread_parms()
-
-
-    # def reread_parms(self):
-    #     self.i=0
-    #     self.gain = float(self.parent.gain_txt_ctrl.GetValue())
-    #     num_points = int(self.parent.points_text_ctrl.GetValue())
-        
-    #     if SIMULATION:
-    #         curve = Curve(curve_array = 0.5*np.ones(num_points))
-    #         self.current = curve.get_processed()
-    #     else:
-    #         self.update_feedback_curve()
-
-    #     # Reload curves
-    #     self.parent.load('bkg')
-    #     if self.parent.target_source_radio_box.GetSelection() == 0:
-    #         target_curve = self.parent.cTargetFile
-    #         self.parent.load('tgt_file')
-    #     else:
-    #         target_curve = self.parent.cLibrary
-    #         self.parent.load('library')
-    #     self.iterations = int(self.parent.iterations_txt_ctrl.GetValue())
-    #     self.tolerance = float(self.parent.tolerance_txt_ctrl.GetValue())
-    #     self.max_percent_change = int(self.parent.max_change_txt_ctrl.GetValue())
-    #     self.correction_factor = np.zeros(np.alen(self.current))
-    #     self.target=target_curve.get_processed()
-    #     self.target_plot_data.set_ydata(self.target)
 
 
     def close_window(self, event):
