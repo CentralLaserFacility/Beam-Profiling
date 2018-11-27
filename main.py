@@ -13,6 +13,11 @@ import os, wx
 from header import DIAG_FILE_LOCATION
 from setupframe import SetupFrame
 
+# Avoids wx._core.wxAssertionError:
+# C++ assertion "strcmp(setlocale(LC_ALL, NULL), "C") == 0"
+import locale
+locale.setlocale(locale.LC_ALL, 'C')
+
 
 # Create folder for diagnostic files if necessary
 if not os.path.exists(DIAG_FILE_LOCATION):
@@ -21,6 +26,7 @@ if not os.path.exists(DIAG_FILE_LOCATION):
 if __name__ == "__main__":  
 
     app = wx.App()
+    
     app.frame = SetupFrame(None)
     app.frame.Show()
     app.MainLoop()
