@@ -185,8 +185,8 @@ class LoopFrame(wx.Frame):
                 awg_next[np.logical_and(self.target!=0,awg_now==0)]=AWG_ZERO_SHIFT #If the AWG point is zero, but the target isn't, bump the AWG up
                 awg_next_norm = awg_next/np.amax(awg_next)
                 # Apply max % change
-                max_allowed = (1.0 + self.max_percent_change) * awg_now
-                min_allowed = (1.0 - self.max_percent_change) * awg_now
+                max_allowed = (1.0 + self.max_percent_change/100.0) * awg_now
+                min_allowed = (1.0 - self.max_percent_change/100.0) * awg_now
                 awg_next_norm = np.clip(awg_next_norm, min_allowed, max_allowed)
 
                 

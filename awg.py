@@ -54,7 +54,7 @@ class  Awg(object):
 
             incr = 100.0 * math.fabs(val - self.wf[i])/float(self.dac)
 
-        print(get_message_time()+"Modifying point %d from %f to %f : %.1f percent of DAC" % (i, self.wf[i], val, incr))
+        print(get_message_time()+"Modifying point %d from %d to %d : %.1f percent of DAC" % (i, self.wf[i], val, incr))
         name = self.prefix + ":_SetSample" + str(i) + "_do"
 
         epics.caput(name,val)
