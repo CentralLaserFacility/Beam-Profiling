@@ -9,7 +9,7 @@ from awg import Awg
 import matplotlib
 matplotlib.use('WXAgg')
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigCanvas
-import time, math, pylab,wx
+import time, math, pylab, wx, sys
 import numpy as np
 import epics
 from datetime import datetime
@@ -31,37 +31,60 @@ class LoopFrame(wx.Frame):
         
         wx.Frame.__init__(self, parent, size=(1000,400), title=self._title, pos=position)
         self.parent = parent
+        self.Bind(wx.EVT_CLOSE, self.close_window)
+
+        # Set up the parameters for the AWG and the looping
+        self.max_percent_change = max_percent_change
         self.num_points = int(self.parent.points_text_ctrl.GetValue())
         self.current_output=start_curve.get_processed()
         self.correction_factor = np.zeros(np.alen(self.current_output))
-        self.Bind(wx.EVT_CLOSE, self.close_window)
+        if not SIMULATION:
+            self.awg = Awg(AWG_PREFIX, self.num_points , self.max_percent_change)
+        self.gain = gain
+        self.tolerance = tolerance
+        self.iterations = iterations
+        self.i = 0 #Store the loop count for stopping/restarting loop
+        self.save_diag_files = True if parent.diag_files_radio_box.GetSelection() == 0 else False
         
         # Filter the target curve and renormalise
         #self.target=target_curve.get_processed()
         self.target=gaussian_filter1d(target_curve.get_processed(), sigma=1, order=0)
         self.target=self.target/np.max(self.target)
         
-        self.max_percent_change = max_percent_change
-        if not SIMULATION:
-            self.awg = Awg(AWG_PREFIX, self.num_points , self.max_percent_change)
+        # Create a panel to hold a log output
+        log_panel = wx.Panel(self, wx.ID_ANY)
+        log = wx.TextCtrl(log_panel, size=(1000,100),
+                          style = wx.TE_MULTILINE|wx.TE_READONLY|wx.HSCROLL)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.Add(log, 0, flag=wx.LEFT | wx.TOP | wx.GROW)
+        log_panel.SetSizer(sizer)
+
+        # Point stdout to the log window
+        log_stream = RedirectText(log)
+        self.standard_stdout = sys.stdout
+        sys.stdout=log_stream
+        
+        # Canvas to hold the plots
         self.init_plot()
         self.canvas = FigCanvas(self, -1, self.fig)
         self.vbox = wx.BoxSizer(wx.VERTICAL)
-        self.vbox.Add(self.canvas, 10, flag=wx.LEFT | wx.TOP | wx.GROW)
+
+        # Add canvas and log window to sizer
+        self.vbox.Add(self.canvas, 1, flag=wx.LEFT | wx.TOP | wx.GROW)
+        self.vbox.Add(log_panel, 0, flag=wx.LEFT | wx.TOP | wx.GROW)
         self.SetSizer(self.vbox)
         self.vbox.Fit(self)
+        
+        # Draw the window and display
         self.draw_plots()
-        self.gain = gain
-        self.iterations = iterations
-        self.i = 0 #Store the loop count for stopping/restarting loop
-        self.tolerance = tolerance
         self.parent.Disable() # Stop the user launching another loop window until this one is closed
-        self.save_diag_files = True if parent.diag_files_radio_box.GetSelection() == 0 else False
         self.Show()
         self.run_loop()
 
 
     def close_window(self, event):
+        # Restore stdout to normal, and enable the parent before closing
+        sys.stdout = self.standard_stdout
         self.parent.Enable()
         self.Destroy()
 
@@ -218,7 +241,7 @@ class LoopFrame(wx.Frame):
         cropping = (start, start+length)
 
         if is_simulation:
-            data = self._resample(self.current_output, np.size(self.parent.cBackground.get_raw()))
+            data = self.resample(self.current_output, np.size(self.parent.cBackground.get_raw()))
             cropping = (0,1000)
         else:
             data = epics.caget(self.parent.scope_pv_name)
@@ -232,7 +255,7 @@ class LoopFrame(wx.Frame):
 
     # This is only here for use with the simulation, to simluate a new 1000 point
     # curve being taken from the scope
-    def _resample(self, data, npoints):
+    def resample(self, data, npoints):
         im = np.arange(0,len(data))
         factor = len(data)/float(npoints)
         ip = np.arange(0, len(data), factor)
@@ -253,6 +276,7 @@ class LoopFrame(wx.Frame):
     def apply_correction(self, is_simulation, awg_next_norm):
         if is_simulation:
             self.current_output = awg_next_norm
+            print(get_message_time()+"Correction applied for iteration %d" % self.i)
         else:
             # Write the new AWG trace to the hardware
             self.awg.pause_scanning_PVS() #Stop IDIL/AWG comms while writing curve
@@ -262,6 +286,7 @@ class LoopFrame(wx.Frame):
             else:
                 self.awg.apply_curve_point_by_point(awg_next_norm, zero_to_end=False)
             self.awg.start_scanning_PVS() #Restart the comms now finished writing
+
 
     def get_awg_now(self, is_simulation):
         if is_simulation:
@@ -273,6 +298,12 @@ class LoopFrame(wx.Frame):
 
 
 
-
-
+# This is used in the constructor of loop frame to redirect output from
+# stdout to log panel
+class RedirectText(object):
+    def __init__(self,aWxTextCtrl):
+        self.out=aWxTextCtrl
+ 
+    def write(self,string):
+        self.out.WriteText(string)
                 
