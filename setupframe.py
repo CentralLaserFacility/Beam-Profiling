@@ -340,9 +340,12 @@ class SetupFrame(wx.Frame):
             target_curve = self.cTargetFile
             target_loaded = self.load('library')
         
-        # Get the latest date for the feeback curve
+        # Get the latest date for the feedback curve
         if SIMULATION:
-            start_curve = Curve(curve_array = 0.5*np.ones(np.size(self.cBackground.get_raw())))
+            temp=0.5*np.ones(np.size(self.cBackground.get_raw()))
+            temp[250:350]=0
+            temp[400:500]=0
+            start_curve = Curve(curve_array = temp)
             start_curve.process('clip','norm',bkg=self.cBackground, 
                 crop = cropping , resample = num_points)
         else:

@@ -10,7 +10,11 @@
 #########################################################################################
 import os, wx
 
-from header import DIAG_FILE_LOCATION
+from header import  (DIAG_FILE_LOCATION,
+                     EPICS_CA_AUTO_ADDR_LIST,
+                     EPICS_CA_ADDR_LIST,
+                     epics_setup)
+
 from setupframe import SetupFrame
 
 # Avoids wx._core.wxAssertionError:
@@ -18,6 +22,8 @@ from setupframe import SetupFrame
 import locale
 locale.setlocale(locale.LC_ALL, 'C')
 
+# Peform any setup needed for EPICS (e.g. writing env. variables)
+epics_setup(EPICS_CA_ADDR_LIST, EPICS_CA_AUTO_ADDR_LIST)
 
 # Create folder for diagnostic files if necessary
 if not os.path.exists(DIAG_FILE_LOCATION):
