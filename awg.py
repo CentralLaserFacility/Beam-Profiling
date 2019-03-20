@@ -101,20 +101,3 @@ class  Awg(object):
     
     def get_message_time(self):
         return datetime.now().strftime("%b_%d_%H:%M.%S")+": "
-
-
-    def on_grab_trace(self, event):  # wxGlade: SetupFrame.<event_handler>
-    ''' Grabs a user defined number of traces from the scope'''
-    num_to_average = int(self.trc_avg.GetValue())        
-    datas=[]
-    i=0
-    prog = wx.ProgressDialog("Getting scope data", "Reading trace 1", num_to_average)
-    while i < num_to_average:            
-        data = epics.caget(self.scope_pv_name)
-        datas.append(data)
-        time.sleep(SCOPE_WAIT_TIME)
-        i+=1
-        prog.Update(i,"Reading trace %d" % (i))
-    result = np.average(np.array(datas),axis=0)
-    self.cTrace = Curve(curve_array = result, name = 'Scope')
-    #prog.Destroy()
