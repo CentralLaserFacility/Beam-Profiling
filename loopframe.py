@@ -130,11 +130,11 @@ class LoopFrame(wx.Frame):
         return 1.0/np.mean(awg_curve)
 
 
-    def draw_plots(self, rms = 0, i =0, peak_power=0):
+    def draw_plots(self, rms = 0, i =0, gain=0, peak_power=0):
         self.corr_plot_data.set_ydata(self.correction_factor)
         self.curve_plot_data.set_ydata(self.current_output)
         self.correction_axis.set_ybound(lower=0.9*np.amin(self.correction_factor), upper=1.1*np.amax(self.correction_factor)+0.001)
-        self.statusBar.SetStatusText("Iteration: {0:d}\tRMS: {1:.3f}\tPeak Power: {2:.2f}".format(i,rms,peak_power))
+        self.statusBar.SetStatusText("Iteration: {0:d}\tRMS: {1:.3f}\tPeak Power: {2:.2f}\tGain: {3:.2f}".format(i,rms,peak_power, gain))
         self.canvas.draw()     
 
 
@@ -160,7 +160,7 @@ class LoopFrame(wx.Frame):
 
     def run_loop(self):    
         iterations = self.iterations
-        self.draw_plots(self.rms_error(),self.i)
+        self.draw_plots(self.rms_error(),self.i, self.gain)
         wx.SafeYield(self) # Lets the plot update
         
         while self.i<iterations and self.rms_error()>=self.tolerance:                     
@@ -185,7 +185,7 @@ class LoopFrame(wx.Frame):
             awg_next_norm = awg_next/np.amax(awg_next)
 
             # Draw plots and check if the user wants to continue
-            self.draw_plots(self.rms_error(),self.i, self.peak_power(awg_next_norm))
+            self.draw_plots(self.rms_error(),self.i, self.gain, self.peak_power(awg_next_norm))
             cont = self.draw_awg_plots(awg_now, awg_next_norm) 		             
             wx.SafeYield(self)
                             
@@ -210,7 +210,7 @@ class LoopFrame(wx.Frame):
 
         # After the loop has finished plot the final data. Use the applied AWG trace from the last iteration
         # rather than re-read the AWG values from hardware. The two shouldn't differ unless there was a problem.
-        self.draw_plots(self.rms_error(),self.i, -1)
+        self.draw_plots(self.rms_error(),self.i, self.gain, -1)
         wx.SafeYield(self) # Needed to allow processing events to stop loop and let plot update
         print(get_message_time()+"Loop ended")
     
