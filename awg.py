@@ -66,11 +66,16 @@ class  Awg(object):
             print(get_message_time()+"Error: size of input list is " + len(points) + ". Expecting " + self.pulse_size) 
             return
 
+        # Setup for a progress box
+        progLength = len(points) if not zero_to_end else len(self.wf)
+        prog= wx.ProgressDialog('Writing to AWG', 'Writing sample 1', progLength)
+
         for i, point in enumerate(points):
            val = int(point * self.dac) 
            if val > self.dac: continue
            self.modify_point(i, val)
            #print "simulation - point "+ str(i) + " - value " + str(val) 
+           prog.Update(i, "Writing sample %d" % (i))
            time.sleep(PAUSE_BETWEEN_AWG_WRITE)
            #raw_input("continue")
 
@@ -79,11 +84,14 @@ class  Awg(object):
         if zero_to_end == True:
             i = len(points)
             while i < len(self.wf):
+                prog.Update(i, "Writing sample %d" % (i))
                 if self.wf[i] != 0:
                     print(get_message_time()+"Setting point %d to zero" % i)
                     epics.caput(self.prefix + ":_SetSample" + str(i) + "_do",0)
                     time.sleep(PAUSE_BETWEEN_AWG_WRITE)
                 i+=1
+        #prog.Destroy()
+        
 
     def pause_scanning_PVS(self):
         epics.caput(self.prefix + ':_SelScanDisable', 1)
@@ -93,3 +101,20 @@ class  Awg(object):
     
     def get_message_time(self):
         return datetime.now().strftime("%b_%d_%H:%M.%S")+": "
+
+
+    def on_grab_trace(self, event):  # wxGlade: SetupFrame.<event_handler>
+    ''' Grabs a user defined number of traces from the scope'''
+    num_to_average = int(self.trc_avg.GetValue())        
+    datas=[]
+    i=0
+    prog = wx.ProgressDialog("Getting scope data", "Reading trace 1", num_to_average)
+    while i < num_to_average:            
+        data = epics.caget(self.scope_pv_name)
+        datas.append(data)
+        time.sleep(SCOPE_WAIT_TIME)
+        i+=1
+        prog.Update(i,"Reading trace %d" % (i))
+    result = np.average(np.array(datas),axis=0)
+    self.cTrace = Curve(curve_array = result, name = 'Scope')
+    #prog.Destroy()
