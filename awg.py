@@ -1,4 +1,4 @@
-import epics, time, math
+import epics, time, math, wx
 import numpy as np
 from datetime import datetime
 from header import PAUSE_BETWEEN_AWG_WRITE, get_message_time
