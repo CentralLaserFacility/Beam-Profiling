@@ -168,13 +168,16 @@ class LoopFrame(wx.Frame):
             awg_now = self.get_awg_now(SIMULATION)
             self.calc_correction_factor(awg_now)
 
-            # Apply correction factor. 
+            # Apply max % change to the correction factor
+            self.correction_factor = np.clip(self.correction_factor, 1.0-self.max_percent_change/100.0, 1.0+self.max_percent_change/100.0)
+
+            # Apply correction factor 
             awg_next = awg_now * self.correction_factor
             
-            # Apply max % change 
-            max_allowed = (1.0 + self.max_percent_change/100.0) * awg_now
-            min_allowed = (1.0 - self.max_percent_change/100.0) * awg_now
-            awg_next = np.clip(awg_next, min_allowed, max_allowed)
+            # Apply max % change - not necessary if you apply it at the correction factor stage as above
+            #max_allowed = (1.0 + self.max_percent_change/100.0) * awg_now
+            #min_allowed = (1.0 - self.max_percent_change/100.0) * awg_now
+            #awg_next = np.clip(awg_next, min_allowed, max_allowed)
 
             # If target is non-zero but AWG is zero apply offset of AWG_ZERO_SHIFT
             # If target is zero set AWG to zero directly
@@ -225,9 +228,10 @@ class LoopFrame(wx.Frame):
         self.correction_factor = (self.correction_factor - 1) * self.gain + 1
 
         # When the target!0 and the AWG==0, the correction multiplier is not applied (as it would be infinity)
-        # In stead there is a constant offset applied the loop. To avoid displaying false info in the plot of the 
+        # Instead there is a constant offset applied the loop. To avoid displaying false info in the plot of the 
         # correction factor, set those regions to zero in the output
-        self.correction_factor = self.correction_factor*(np.logical_not(np.logical_and(self.target!=0,awg_now==0)).astype(int))
+        # This shouldn't be necessary if the correction factor is clipped at max% change 
+        # self.correction_factor = self.correction_factor*(np.logical_not(np.logical_and(self.target!=0,awg_now==0)).astype(int))
 
 
     def show_power_warning_message(self):        
@@ -280,11 +284,13 @@ class LoopFrame(wx.Frame):
         else:
             # Write the new AWG trace to the hardware
             self.awg.pause_scanning_PVS() #Stop IDIL/AWG comms while writing curve
+            time.sleep(1) #Let the message buffer clear
             if self.i==0:
                 # On the first pass only, set any AWG samples outside the pulse to zero
                 self.awg.apply_curve_point_by_point(awg_next_norm, zero_to_end=True)
             else:
                 self.awg.apply_curve_point_by_point(awg_next_norm, zero_to_end=False)
+            time.sleep(3) #Let the message buffer clear    
             self.awg.start_scanning_PVS() #Restart the comms now finished writing
 
 
