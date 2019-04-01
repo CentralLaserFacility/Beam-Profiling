@@ -13,9 +13,9 @@ class  Awg(object):
 
     def _read_current_shape(self):
         print(get_message_time()+"Read current shape...")
-        epics.caput(self.prefix + ':ReadWaveform.PROC', 1)
+        epics.caput(self.prefix + ':ReadWaveform_ascii_do.PROC', 1)
         time.sleep(2)
-        self.wf = epics.caget(self.prefix + ':ReadWaveform_do')
+        self.wf = epics.caget(self.prefix + ':ReadWaveform_ascii_do')
         self.dac = epics.caget(self.prefix + ':DAC')
         self.wf = np.clip(self.wf,0,self.dac)
         self.nwf = self.wf/float(self.dac)
