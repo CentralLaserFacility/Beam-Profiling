@@ -78,7 +78,7 @@ class SetupFrame(wx.Frame):
         self.cTargetFile = TargetCurve(name = 'Target')
         self.cTrace = Curve(name = 'Scope') # Used to hold data from a 'grab'
         self.scope_pv_name = self.scope_pv_text_ctrl.GetValue().strip()
-        
+
         # Find the library curves
         self.popluate_library_combobox()
 
@@ -205,7 +205,7 @@ class SetupFrame(wx.Frame):
         main_sizer.Add(loop_szr, 1, wx.EXPAND, 0)
         self.SetSizer(main_sizer)
         self.Layout()
-        
+
         # end wxGlade
 
     def popluate_library_combobox(self):
@@ -214,16 +214,16 @@ class SetupFrame(wx.Frame):
             for f in files:
                 pieces = f.split('.')
                 if pieces[1] == 'curve':
-                    self.library_combo_box.Append(pieces[0]) 
+                    self.library_combo_box.Append(pieces[0])
         except:
-            pass  
+            pass
 
     @EpicsFunction
     def on_scope_pv(self,event): # wxGlade: SetupFrame.<event_handler>
         """ Connects to pv when user hits enter. Uses PyEpics. """
         self.scope_pv_name = self.scope_pv_text_ctrl.GetValue().strip()
         self.scope_pv = epics.PV(self.scope_pv_name, connection_callback=self.on_pv_connect)
-        #Change the colour after connection attempt, and set the on/off pv  
+        #Change the colour after connection attempt, and set the on/off pv
         if self.scope_pv.connected:
             self.scope_pv_text_ctrl.SetBackgroundColour('#0aff05')
         else:
@@ -243,14 +243,14 @@ class SetupFrame(wx.Frame):
 
 
     def closeWindow(self, event):
-        self.Destroy()    
+        self.Destroy()
 
 
     def on_browse(self, event):  # wxGlade: SetupFrame.<event_handler>
 
         frame = wx.Frame(None, -1, "Load a curve")
 
-        with wx.FileDialog(frame, "Load Curve", 
+        with wx.FileDialog(frame, "Load Curve",
                     style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST) as fileDialog:
 
             fileDialog.ShowModal()
@@ -262,9 +262,9 @@ class SetupFrame(wx.Frame):
         elif event.GetEventObject().GetName() == 'tgt_browse':
             self.target_path_text_ctrl.SetValue(pathname)
         frame.Destroy()
-            
-        
-    def on_preview(self, event):  # wxGlade: SetupFrame.<event_handler>   
+
+
+    def on_preview(self, event):  # wxGlade: SetupFrame.<event_handler>
         if event.GetEventObject().GetName() == 'bkg_prv':
             reason = 'bkg'
             curve = self.cBackground
@@ -303,18 +303,25 @@ class SetupFrame(wx.Frame):
 
     def on_grab_trace(self, event):  # wxGlade: SetupFrame.<event_handler>
         ''' Grabs a user defined number of traces from the scope'''
-        num_to_average = int(self.trc_avg.GetValue())        
+        num_to_average = int(self.trc_avg.GetValue())
         datas=[]
         i=0
         prog = wx.ProgressDialog("Getting scope data", "Reading trace 1", num_to_average)
-        while i < num_to_average:            
+        while i < num_to_average:
             data = epics.caget(self.scope_pv_name)
             datas.append(data)
             time.sleep(SCOPE_WAIT_TIME)
             i+=1
             prog.Update(i,"Reading trace %d" % (i))
-        result = np.average(np.array(datas),axis=0)
-        self.cTrace = Curve(curve_array = result, name = 'Scope')
+
+        try:
+            result = np.average(np.array(datas),axis=0)
+            self.cTrace = Curve(curve_array = result, name = 'Scope')
+        except ZeroDivisionError:
+            ZeroDivideCaption = """Scope may not be sending data.
+            Check correct PV is connected and that the scope IOC is running"""
+            err=wx.MessageDialog(None, "Error when averaging scope data",
+            caption=ZeroDivideCaption, style=wx.ICON_ERROR)
 
 
     def on_trace_save(self, event):  # wxGlade: SetupFrame.<event_handler>
@@ -332,40 +339,40 @@ class SetupFrame(wx.Frame):
         bkg_loaded = self.load('bkg')
         if bkg_loaded != NO_ERR:
             self.show_load_curves_error()
-            return 
+            return
         if self.tgt_src_cb.GetSelection() == 1:
             target_curve = self.cTargetFile
             target_loaded = self.load('tgt_file')
         else:
             target_curve = self.cTargetFile
             target_loaded = self.load('library')
-        
+
         # Get the latest date for the feedback curve
         if SIMULATION:
             temp=0.5*np.ones(np.size(self.cBackground.get_raw()))
             temp[250:350]=0
             temp[400:500]=0
             start_curve = Curve(curve_array = temp)
-            start_curve.process('clip','norm',bkg=self.cBackground, 
+            start_curve.process('clip','norm',bkg=self.cBackground,
                 crop = cropping , resample = num_points)
         else:
             data = epics.caget(self.scope_pv_name)
             time.sleep(SCOPE_WAIT_TIME)
             feedback_curve = Curve(curve_array = data, name = 'Current')
-            feedback_curve.process('clip','norm',bkg=self.cBackground, 
+            feedback_curve.process('clip','norm',bkg=self.cBackground,
                 crop = cropping , resample = num_points)
             start_curve = feedback_curve
 
         # Run the loop if files whre succefully loaded
-        if bkg_loaded == NO_ERR and target_loaded == NO_ERR :   
+        if bkg_loaded == NO_ERR and target_loaded == NO_ERR :
             iterations = int(self.iterations_txt_ctrl.GetValue())
             tolerance = float(self.tolerance_txt_ctrl.GetValue())
             max_percent_change = int(self.max_change_txt_ctrl.GetValue())
             self.run_loop(start_curve, target_curve, gain, iterations, tolerance, max_percent_change)
         else:
             self.show_load_curves_error()
-            
-    def show_load_curves_error(self):        
+
+    def show_load_curves_error(self):
         err = wx.MessageDialog(self, "Couldn't open the background and/or target files", caption="File open error",
             style=wx.ICON_ERROR)
         err.ShowModal()
@@ -375,6 +382,3 @@ class SetupFrame(wx.Frame):
         self.loop = LoopFrame(self,start_curve, target_curve, gain, iterations, tolerance, max_percent_change)
 
 # end of class SetupFrame
-
-
-
