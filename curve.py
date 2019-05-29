@@ -235,7 +235,6 @@ class Curve:
             self._processed = self._processed - val_bkg.get_raw()
         if do_crop:
             self._processed = self._processed[val_crop[0]:val_crop[0+1]]
-            print(len(self._processed))
         if do_resample:
             self._processed = self._resample(self._processed, val_resample)  
         if do_clip:
