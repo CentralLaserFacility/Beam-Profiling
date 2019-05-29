@@ -355,6 +355,8 @@ class SetupFrame(wx.Frame):
             start_curve = Curve(curve_array = temp)
             start_curve.process('clip','norm',bkg=self.cBackground,
                 crop = cropping , resample = num_points)
+
+            
         else:
             data = epics.caget(self.scope_pv_name)
             time.sleep(SCOPE_WAIT_TIME)
@@ -380,5 +382,5 @@ class SetupFrame(wx.Frame):
 
     def run_loop(self, start_curve, target_curve, gain, iterations, tolerance, max_percent_change):
         self.loop = LoopFrame(self,start_curve, target_curve, gain, iterations, tolerance, max_percent_change)
-
+        
 # end of class SetupFrame

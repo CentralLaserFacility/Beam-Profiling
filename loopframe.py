@@ -47,8 +47,8 @@ class LoopFrame(wx.Frame):
         self.save_diag_files = True if parent.diag_files_radio_box.GetSelection() == 0 else False
         
         # Filter the target curve and renormalise
-        #self.target=target_curve.get_processed()
-        self.target=gaussian_filter1d(target_curve.get_processed(), sigma=1, order=0)
+        self.target=target_curve.get_processed()
+        #self.target=gaussian_filter1d(target_curve.get_processed(), sigma=1, order=0)
         self.target=self.target/np.max(self.target)
         
         # Create a panel to hold a log output
@@ -123,25 +123,40 @@ class LoopFrame(wx.Frame):
 
 
     def rms_error(self):
-        return np.sqrt(np.mean(np.square(self.target - self.current_output)))
+        try:
+            rms = np.sqrt(np.mean(np.square(self.target - self.current_output)))
+        except:
+            rms=-1
+        return rms 
 
 
-    def peak_power(self, awg_curve):
-        return 1.0/np.mean(awg_curve)
+    def peak_power(self):
+        try:
+            power = 1.0/np.mean(self.awg_next_norm)
+        except:
+            power = -1
+        return power
 
 
-    def draw_plots(self, rms = 0, i =0, gain=0, peak_power=0):
+    def draw_plots(self):
         self.corr_plot_data.set_ydata(self.correction_factor)
         self.curve_plot_data.set_ydata(self.current_output)
         self.correction_axis.set_ybound(lower=0.9*np.amin(self.correction_factor), upper=1.1*np.amax(self.correction_factor)+0.001)
-        self.statusBar.SetStatusText("Iteration: {0:d}\tRMS: {1:.3f}\tPeak Power: {2:.2f}\tGain: {3:.2f}".format(i,rms,peak_power, gain))
+        self.statusBar.SetStatusText("Iteration: {0:d}\tRMS: {1:.3f}\tPeak Power: {2:.2f}\tGain: {3:.2f}".format(
+            self.i,
+            self.rms_error(),
+            self.peak_power(),
+            self.gain))
         self.canvas.draw()     
 
 
-    def draw_awg_plots(self, awg_current, awg_next):
-        self.awg_now_plot_data.set_ydata(awg_current[:self.num_points])
-        self.awg_next_plot_data.set_ydata(awg_next[:self.num_points])
-        self.canvas.draw()
+    def draw_awg_plots(self):
+        try:
+            self.awg_now_plot_data.set_ydata(self.awg_now[:self.num_points])
+            self.awg_next_plot_data.set_ydata(self.awg_next_norm[:self.num_points])
+            self.canvas.draw()
+        except:
+            pass
         
         #proceed = wx.MessageDialog(self, "Apply the next correction?", style=wx.YES_NO|wx.YES_DEFAULT)
         proceed = wx.TextEntryDialog(self.parent, "Gain for next iteration?","Apply?")
@@ -160,19 +175,19 @@ class LoopFrame(wx.Frame):
 
     def run_loop(self):    
         iterations = self.iterations
-        self.draw_plots(self.rms_error(),self.i, self.gain)
+        self.draw_plots()
         wx.SafeYield(self) # Lets the plot update
         
         while self.i<iterations and self.rms_error()>=self.tolerance:                     
                 
-            awg_now = self.get_awg_now(SIMULATION)
-            self.calc_correction_factor(awg_now)
+            self.awg_now = self.get_awg_now()
+            self.calc_correction_factor()
 
             # Apply max % change to the correction factor
             self.correction_factor = np.clip(self.correction_factor, 1.0-self.max_percent_change/100.0, 1.0+self.max_percent_change/100.0)
 
             # Apply correction factor 
-            awg_next = awg_now * self.correction_factor
+            awg_next = self.awg_now * self.correction_factor
             
             # Apply max % change - not necessary if you apply it at the correction factor stage as above
             #max_allowed = (1.0 + self.max_percent_change/100.0) * awg_now
@@ -181,51 +196,52 @@ class LoopFrame(wx.Frame):
 
             # If target is non-zero but AWG is zero apply offset of AWG_ZERO_SHIFT
             # If target is zero set AWG to zero directly
-            awg_next[np.logical_and(self.target!=0,awg_now==0)]=AWG_ZERO_SHIFT 
+            awg_next[np.logical_and(self.target!=0,self.awg_now==0)]=AWG_ZERO_SHIFT 
             awg_next[self.target==0]=0 
 
             # Normalise output
-            awg_next_norm = awg_next/np.amax(awg_next)
+            self.awg_next_norm = awg_next/np.amax(awg_next)
 
             # Draw plots and check if the user wants to continue
-            self.draw_plots(self.rms_error(),self.i, self.gain, self.peak_power(awg_next_norm))
-            cont = self.draw_awg_plots(awg_now, awg_next_norm) 		             
+            self.draw_plots()
+            proceed = self.draw_awg_plots() 		             
             wx.SafeYield(self)
                             
-            if not cont: 
+            if not proceed: 
                 print(get_message_time()+"Quitting loop. AWG curve will not be applied")
                 break
             
             if self.save_diag_files:
-                self.save_files(DIAG_FILE_LOCATION, awg_now)
+                self.save_files()
             
             # If the next AWG trace would be unsafe, don't apply it and quit
-            if self.peak_power(awg_next_norm) > PULSE_PEAK_POWER:
+            if self.peak_power() > PULSE_PEAK_POWER:
                 print(get_message_time()+"Quitting loop: proposed curve would exceed peak power")
                 self.show_power_warning_message()
                 break
 
-            self.apply_correction(SIMULATION, awg_next_norm)
-            self.update_feedback_curve(SIMULATION)
+            self.apply_correction()
+            self.update_feedback_curve()
 
             # Increase the iteration number and loop again
             self.i+=1
 
         # After the loop has finished plot the final data. Use the applied AWG trace from the last iteration
         # rather than re-read the AWG values from hardware. The two shouldn't differ unless there was a problem.
-        self.draw_plots(self.rms_error(),self.i, self.gain, -1)
+        self.draw_plots()
         wx.SafeYield(self) # Needed to allow processing events to stop loop and let plot update
         print(get_message_time()+"Loop ended")
     
 
-    def calc_correction_factor(self, awg_now):
+    def calc_correction_factor(self):
         # Errors if AWG==0 and target!=0, but we handle that later so ignore them
         with np.errstate(divide='ignore', invalid='ignore'): 
             temp=self.target/self.current_output
-        self.correction_factor=np.nan_to_num(temp)   
+        temp[np.isfinite(temp) == False] = 1
+        #self.correction_factor=np.nan_to_num(temp)       
         
         # Apply the gain 
-        self.correction_factor = (self.correction_factor - 1) * self.gain + 1
+        self.correction_factor = (temp - 1) * self.gain + 1
 
         # When the target!0 and the AWG==0, the correction multiplier is not applied (as it would be infinity)
         # Instead there is a constant offset applied the loop. To avoid displaying false info in the plot of the 
@@ -239,18 +255,36 @@ class LoopFrame(wx.Frame):
         err.ShowModal()
 
 
-    def update_feedback_curve(self, is_simulation):
+    def apply_correction(self):
+        if SIMULATION:
+            self.current_output = self.awg_next_norm
+            print(get_message_time()+"Correction applied for iteration %d" % self.i)
+        else:
+            # Write the new AWG trace to the hardware
+            self.awg.pause_scanning_PVS() #Stop IDIL/AWG comms while writing curve
+            time.sleep(1) #Let the message buffer clear
+            if self.i==0:
+                # On the first pass only, set any AWG samples outside the pulse to zero
+                self.awg.apply_curve_point_by_point(self.awg_next_norm, zero_to_end=True)
+            else:
+                self.awg.apply_curve_point_by_point(self.awg_next_norm, zero_to_end=False)
+            #time.sleep(3) #Let the message buffer clear    
+            self.awg.start_scanning_PVS() #Restart the comms now finished writing
+
+
+    def update_feedback_curve(self):
         start = int(self.parent.scope_start_text_ctrl.GetValue())
         length = int(self.parent.scope_length_text_control.GetValue())
         cropping = (start, start+length)
 
-        if is_simulation:
-            data = self.resample(self.current_output, np.size(self.parent.cBackground.get_raw()))
-            cropping = (0,1000)
+        if SIMULATION:
+            # Don't bother with background correction for simulation mode, so 
+            # just return since self.current_ouput already holds the latest data
+            return
         else:
             data = epics.caget(self.parent.scope_pv_name)
             time.sleep(SCOPE_WAIT_TIME)
-
+  
         feedback_curve = Curve(curve_array = data, name = 'Current')
         feedback_curve.process('clip','norm',bkg=self.parent.cBackground, 
             crop = cropping , resample = self.num_points)
@@ -261,41 +295,24 @@ class LoopFrame(wx.Frame):
     # curve being taken from the scope
     def resample(self, data, npoints):
         im = np.arange(0,len(data))
-        factor = len(data)/float(npoints)
-        ip = np.arange(0, len(data), factor)
+        ip = np.linspace(0,len(data),npoints)
         p = np.interp(ip, im, data)
         return p
 
     
-    def save_files(self, location, awg_now):
+    def save_files(self):
+        location=DIAG_FILE_LOCATION
         fileroot=datetime.now().strftime("%Y_%m_%d_%Hh%M")
         if self.i == 0:
             np.savetxt(location + fileroot + '_target.txt', self.target)
             np.savetxt(location + fileroot + '_background.txt', self.parent.cBackground.get_raw())       
-        np.savetxt((location + fileroot + '_i_%0.5d_AWG_shape.txt' % self.i), awg_now)
+        np.savetxt((location + fileroot + '_i_%0.5d_AWG_shape.txt' % self.i), self.awg_now)
         np.savetxt((location + fileroot + '_i_%0.5d_g_%.2f_correction.txt' % (self.i+1,self.gain)), self.correction_factor)
         np.savetxt((location + fileroot + '_i_%0.5d_scope_trace.txt' % self.i), self.current_output)
 
 
-    def apply_correction(self, is_simulation, awg_next_norm):
-        if is_simulation:
-            self.current_output = awg_next_norm
-            print(get_message_time()+"Correction applied for iteration %d" % self.i)
-        else:
-            # Write the new AWG trace to the hardware
-            self.awg.pause_scanning_PVS() #Stop IDIL/AWG comms while writing curve
-            time.sleep(1) #Let the message buffer clear
-            if self.i==0:
-                # On the first pass only, set any AWG samples outside the pulse to zero
-                self.awg.apply_curve_point_by_point(awg_next_norm, zero_to_end=True)
-            else:
-                self.awg.apply_curve_point_by_point(awg_next_norm, zero_to_end=False)
-            time.sleep(3) #Let the message buffer clear    
-            self.awg.start_scanning_PVS() #Restart the comms now finished writing
-
-
-    def get_awg_now(self, is_simulation):
-        if is_simulation:
+    def get_awg_now(self):
+        if SIMULATION:
             # Assume 1 to 1 mapping of AWG to output for simulation
             return self.current_output
         else:
