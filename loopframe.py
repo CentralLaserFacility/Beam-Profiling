@@ -3,6 +3,7 @@ from header import (SCOPE_WAIT_TIME,
                     SIMULATION, 
                     DIAG_FILE_LOCATION, 
                     AWG_ZERO_SHIFT,
+                    AWG_NS_PER_POINT,
                     PULSE_PEAK_POWER, 
                     get_message_time)
 from awg import Awg
@@ -35,7 +36,7 @@ class LoopFrame(wx.Frame):
 
         # Set up the parameters for the AWG and the looping
         self.max_percent_change = max_percent_change
-        self.num_points = int(self.parent.points_text_ctrl.GetValue())
+        self.num_points = int(float(self.parent.plength_text_ctrl.GetValue())/AWG_NS_PER_POINT)
         self.current_output=start_curve.get_processed()
         self.correction_factor = np.zeros(np.alen(self.current_output))
         if not SIMULATION:

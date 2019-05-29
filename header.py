@@ -24,6 +24,7 @@ PAUSE_BETWEEN_AWG_WRITE = config.getfloat('timing','awg_wait')
 LIBRARY_FILES_LOCATION = config.get('file_locations','curve')
 NO_ERR = config.getint('util','no_err')
 AWG_ZERO_SHIFT = config.getfloat('util', 'awg_zero_shift')
+AWG_NS_PER_POINT = config.getfloat('util', 'awg_ns_per_point')
 PULSE_PEAK_POWER = config.getfloat('safety', 'pulse_peak_power')
 
 EPICS_CA_ADDR_LIST = config.get('epics', 'epics_ca_addr_list')

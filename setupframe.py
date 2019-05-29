@@ -3,7 +3,12 @@ from loopframe import LoopFrame #Must import LoopFrame first as it sets correct 
 from curve import Curve, BkgCurve, TargetCurve
 import numpy as np
 import wx, time, os
-from header import SCOPE_WAIT_TIME, SIMULATION, NO_ERR, DEFAULT_SCOPE_PV,LIBRARY_FILES_LOCATION
+from header import (SCOPE_WAIT_TIME, 
+                    SIMULATION, 
+                    NO_ERR, 
+                    DEFAULT_SCOPE_PV,
+                    LIBRARY_FILES_LOCATION, 
+                    AWG_NS_PER_POINT)
 import epics
 from epics.wx import EpicsFunction, DelayedEpicsCallback
 
@@ -43,8 +48,8 @@ class SetupFrame(wx.Frame):
         self.scope_slice_sizer_staticbox = wx.StaticBox(self, wx.ID_ANY, "Start point / length")
         self.tgt_src_cb = wx.ComboBox(self, wx.ID_ANY, choices=["Library", "File"], style=wx.CB_READONLY)
         self.src_cb_szr_staticbox = wx.StaticBox(self, wx.ID_ANY, "Target source")
-        self.points_text_ctrl = wx.TextCtrl(self, wx.ID_ANY, "82", style=wx.TE_CENTRE)
-        self.point_szr_staticbox = wx.StaticBox(self, wx.ID_ANY, "Num points")
+        self.plength_text_ctrl = wx.TextCtrl(self, wx.ID_ANY, "10", style=wx.TE_CENTRE)
+        self.plength_szr_staticbox = wx.StaticBox(self, wx.ID_ANY, "Pulse length (ns)")
         self.gain_txt_ctrl = wx.TextCtrl(self, wx.ID_ANY, "0.1", style=wx.TE_CENTRE)
         self.gain_sizer_staticbox = wx.StaticBox(self, wx.ID_ANY, "Gain")
         self.iterations_txt_ctrl = wx.TextCtrl(self, wx.ID_ANY, "10", style=wx.TE_CENTRE)
@@ -130,8 +135,8 @@ class SetupFrame(wx.Frame):
         gain_sizer = wx.StaticBoxSizer(self.gain_sizer_staticbox, wx.HORIZONTAL)
         scope_szr = wx.BoxSizer(wx.HORIZONTAL)
         tgt_src_szr = wx.BoxSizer(wx.HORIZONTAL)
-        self.point_szr_staticbox.Lower()
-        point_szr = wx.StaticBoxSizer(self.point_szr_staticbox, wx.HORIZONTAL)
+        self.plength_szr_staticbox.Lower()
+        point_szr = wx.StaticBoxSizer(self.plength_szr_staticbox, wx.HORIZONTAL)
         self.src_cb_szr_staticbox.Lower()
         src_cb_szr = wx.StaticBoxSizer(self.src_cb_szr_staticbox, wx.HORIZONTAL)
         self.scope_slice_sizer_staticbox.Lower()
@@ -186,7 +191,7 @@ class SetupFrame(wx.Frame):
         src_cb_szr.Add(self.tgt_src_cb, 1, wx.EXPAND, 0)
         tgt_src_szr.Add(src_cb_szr, 1, wx.EXPAND, 0)
         tgt_src_szr.Add((10, 20), 0, 0, 0)
-        point_szr.Add(self.points_text_ctrl, 1, wx.EXPAND, 0)
+        point_szr.Add(self.plength_text_ctrl, 1, wx.EXPAND, 0)
         tgt_src_szr.Add(point_szr, 1, wx.EXPAND, 0)
         scope_szr.Add(tgt_src_szr, 1, 0, 0)
         main_sizer.Add(scope_szr, 1, wx.EXPAND, 0)
@@ -282,7 +287,7 @@ class SetupFrame(wx.Frame):
 
 
     def load(self, reason):
-        num_pts = int(self.points_text_ctrl.GetValue())
+        num_pts = int(float(self.plength_text_ctrl.GetValue())/AWG_NS_PER_POINT)
 
         if reason == 'bkg':
             pathname = self.bkg_path_text_ctrl.GetValue()
@@ -330,7 +335,7 @@ class SetupFrame(wx.Frame):
 
     def on_go(self, event):  # wxGlade: SetupFrame.<event_handler>
         gain = float(self.gain_txt_ctrl.GetValue())
-        num_points = int(self.points_text_ctrl.GetValue())
+        num_points = int(float(self.plength_text_ctrl.GetValue())/AWG_NS_PER_POINT)
         start = int(self.scope_start_text_ctrl.GetValue())
         length = int(self.scope_length_text_control.GetValue())
         cropping = (start, start+length)
