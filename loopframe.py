@@ -91,6 +91,8 @@ class LoopFrame(wx.Frame):
 
 
     def init_plot(self):
+        
+        # create the plots and add some labels
         self.dpi = 100
         self.fig = plt.Figure((12.0, 4.0), dpi=self.dpi)
         self.curve_axis = self.fig.add_subplot(131)
@@ -109,8 +111,10 @@ class LoopFrame(wx.Frame):
         self.awg_axis.set_xlabel('Time (ns)', fontsize=8)
         self.awg_axis.set_title('AWG')
         
+        # setup the values to use on the time axis
         time_axis = np.arange(0, self.num_points*AWG_NS_PER_POINT, AWG_NS_PER_POINT)
 
+        # add data to the plots
         self.corr_plot_data = self.correction_axis.plot(
             time_axis,self.correction_factor, label = 'Correction')[0]        
         self.curve_plot_data = self.curve_axis.plot(
@@ -118,8 +122,6 @@ class LoopFrame(wx.Frame):
         self.target_plot_data = self.curve_axis.plot(
             time_axis,self.target, label = 'Target')[0]
         
-
-
         self.curve_axis.legend(loc=8, prop={'size':8})
         self.curve_axis.set_ybound(lower=-0.1, upper=1.2)
         if not SIMULATION:
