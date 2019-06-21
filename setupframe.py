@@ -77,6 +77,7 @@ class SetupFrame(wx.Frame):
         # end wxGlade
         self.Bind(wx.EVT_CLOSE, self.closeWindow)
         self.Bind(wx.EVT_TEXT_ENTER, self.on_scope_pv, self.scope_pv_text_ctrl)
+        self.plength_text_ctrl.Bind(wx.EVT_KILL_FOCUS, self.coerce_pulse_length)
 
         # Instantiate Curve objects to hold data
         self.cBackground = BkgCurve(name = 'Background')
@@ -213,6 +214,13 @@ class SetupFrame(wx.Frame):
 
         # end wxGlade
 
+    def coerce_pulse_length(self, event):
+        desired_length = float(self.plength_text_ctrl.GetValue())
+        remainder = desired_length % AWG_NS_PER_POINT
+        if  remainder != 0:
+            self.plength_text_ctrl.SetValue(str(desired_length - remainder))
+        event.Skip()
+
     def popluate_library_combobox(self):
         try:
             files = os.listdir(LIBRARY_FILES_LOCATION)
@@ -282,8 +290,13 @@ class SetupFrame(wx.Frame):
         elif event.GetEventObject().GetName() == 'trace_prv':
             reason = 'trace'
             curve = self.cTrace
-        self.load(reason)
-        curve.plot_processed()
+        err = self.load(reason)
+        if not err:
+            curve.plot_processed()
+        else:
+            self.show_error("Couldn't read the curve", "Preview error")
+
+
 
 
     def load(self, reason):
@@ -377,10 +390,10 @@ class SetupFrame(wx.Frame):
             max_percent_change = int(self.max_change_txt_ctrl.GetValue())
             self.run_loop(start_curve, target_curve, gain, iterations, tolerance, max_percent_change)
         else:
-            self.show_load_curves_error()
+            self.show_error("Couldn't open the background and/or target files", "File open error")
 
-    def show_load_curves_error(self):
-        err = wx.MessageDialog(self, "Couldn't open the background and/or target files", caption="File open error",
+    def show_error(self, msg, cap):
+        err = wx.MessageDialog(self, msg, cap,
             style=wx.ICON_ERROR)
         err.ShowModal()
 
