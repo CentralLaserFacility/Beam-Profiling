@@ -78,6 +78,7 @@ class SetupFrame(wx.Frame):
         self.Bind(wx.EVT_CLOSE, self.closeWindow)
         self.Bind(wx.EVT_TEXT_ENTER, self.on_scope_pv, self.scope_pv_text_ctrl)
         self.plength_text_ctrl.Bind(wx.EVT_KILL_FOCUS, self.coerce_pulse_length)
+        self.gain_txt_ctrl.Bind(wx.EVT_KILL_FOCUS, self.coerce_gain)
 
         # Instantiate Curve objects to hold data
         self.cBackground = BkgCurve(name = 'Background')
@@ -220,6 +221,12 @@ class SetupFrame(wx.Frame):
         if  remainder != 0:
             self.plength_text_ctrl.SetValue(str(desired_length - remainder))
         event.Skip()
+    
+    def coerce_gain(self, event):
+        gain = np.clip(float(self.gain_txt_ctrl.GetValue()),0.05,1)
+        self.gain_txt_ctrl.SetValue(str(gain))
+        event.Skip()
+            
 
     def popluate_library_combobox(self):
         try:
