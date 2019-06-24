@@ -78,7 +78,7 @@ class SetupFrame(wx.Frame):
         self.Bind(wx.EVT_CLOSE, self.closeWindow)
         self.Bind(wx.EVT_TEXT_ENTER, self.on_scope_pv, self.scope_pv_text_ctrl)
         self.plength_text_ctrl.Bind(wx.EVT_KILL_FOCUS, self.coerce_pulse_length)
-        self.gain_txt_ctrl.Bind(wx.EVT_KILL_FOCUS, self.coerce_gain)
+        self.gain_txt_ctrl.Bind(wx.EVT_KILL_FOCUS, self.coerce_value)
 
         # Instantiate Curve objects to hold data
         self.cBackground = BkgCurve(name = 'Background')
@@ -88,6 +88,15 @@ class SetupFrame(wx.Frame):
 
         # Find the library curves
         self.popluate_library_combobox()
+
+        # Create scope pv and connect
+        self.scope_pv_name = self.scope_pv_text_ctrl.GetValue().strip()
+        self.scope_pv = epics.PV(self.scope_pv_name, connection_callback=self.on_pv_connect)
+        if self.scope_pv.connected:
+            self.scope_pv_text_ctrl.SetBackgroundColour('#0aff05')
+        else:
+            self.scope_pv_text_ctrl.SetBackgroundColour('#cc99ff')
+        #self.scope_pv_text_ctrl.Refresh()
 
     def __set_properties(self):
         # begin wxGlade: SetupFrame.__set_properties
@@ -121,6 +130,7 @@ class SetupFrame(wx.Frame):
         self.target_preview_button.SetName('tgt_prv')
         self.library_preview_button.SetName('lby_prv')
         self.trace_preview_button.SetName('trace_prv')
+        self.gain_txt_ctrl.SetName('gain_ctrl')
 
     def __do_layout(self):
         # begin wxGlade: SetupFrame.__do_layout
@@ -222,10 +232,14 @@ class SetupFrame(wx.Frame):
             self.plength_text_ctrl.SetValue(str(desired_length - remainder))
         event.Skip()
     
-    def coerce_gain(self, event):
-        gain = np.clip(float(self.gain_txt_ctrl.GetValue()),0.05,1)
-        self.gain_txt_ctrl.SetValue(str(gain))
-        event.Skip()
+    def coerce_value(self, event):
+        obj = event.GetEventObject()        
+        if obj.GetName() == 'gain_ctrl':
+            min=0.05
+            max=1        
+        val = np.clip(float(obj.GetValue()),min,max)
+        obj.SetValue(str(val))
+        #event.Skip()
             
 
     def popluate_library_combobox(self):
@@ -247,7 +261,7 @@ class SetupFrame(wx.Frame):
         if self.scope_pv.connected:
             self.scope_pv_text_ctrl.SetBackgroundColour('#0aff05')
         else:
-            self.scope_pv_text_ctrl.SetBackgroundColour('#c800c8')
+            self.scope_pv_text_ctrl.SetBackgroundColour('#cc99ff')
         self.scope_pv_text_ctrl.Refresh()
         event.Skip()
 
@@ -258,7 +272,7 @@ class SetupFrame(wx.Frame):
         if conn:
             self.scope_pv_text_ctrl.SetBackgroundColour('#0aff05')
         else:
-            self.scope_pv_text_ctrl.SetBackgroundColour('#c800c8')
+            self.scope_pv_text_ctrl.SetBackgroundColour('#cc99ff')
         self.scope_pv_text_ctrl.Refresh()
 
 
@@ -331,22 +345,27 @@ class SetupFrame(wx.Frame):
         num_to_average = int(self.trc_avg.GetValue())
         datas=[]
         i=0
-        prog = wx.ProgressDialog("Getting scope data", "Reading trace 1", num_to_average)
-        while i < num_to_average:
-            data = epics.caget(self.scope_pv_name)
-            datas.append(data)
-            time.sleep(SCOPE_WAIT_TIME)
-            i+=1
-            prog.Update(i,"Reading trace %d" % (i))
+        self.on_scope_pv(event)
+        if self.scope_pv.connected:
+            prog = wx.ProgressDialog("Getting scope data", "Reading trace 1", num_to_average)
+            while i < num_to_average:
+                #data = epics.caget(self.scope_pv_name)
+                data = self.scope_pv.get()
+                datas.append(data)
+                time.sleep(SCOPE_WAIT_TIME)
+                i+=1
+                prog.Update(i,"Reading trace %d" % (i))                                   
+        else:
+            self.show_error("Can't connect to scope PV", "Scope read error")
+            return
 
         try:
             result = np.average(np.array(datas),axis=0)
             self.cTrace = Curve(curve_array = result, name = 'Scope')
-        except ZeroDivisionError:
-            ZeroDivideCaption = """Scope may not be sending data.
+        except:
+            caption = """Scope may not be sending data.
             Check correct PV is connected and that the scope IOC is running"""
-            err=wx.MessageDialog(None, "Error when averaging scope data",
-            caption=ZeroDivideCaption, style=wx.ICON_ERROR)
+            self.show_error(caption, "Error when averaging scope data")
 
 
     def on_trace_save(self, event):  # wxGlade: SetupFrame.<event_handler>
