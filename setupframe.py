@@ -382,7 +382,7 @@ class SetupFrame(wx.Frame):
         # Reload curves
         bkg_loaded = self.load('bkg')
         if bkg_loaded != NO_ERR:
-            self.show_load_curves_error()
+            self.show_error("Can't load background curve", "File error")
             return
         if self.tgt_src_cb.GetSelection() == 1:
             target_curve = self.cTargetFile
@@ -402,7 +402,10 @@ class SetupFrame(wx.Frame):
 
             
         else:
-            data = epics.caget(self.scope_pv_name)
+            if not self.scope_pv.connected:
+                self.show_error("Can't connect to scope PV", "Scope read error")
+                return
+            data = self.scope_pv.get()
             time.sleep(SCOPE_WAIT_TIME)
             feedback_curve = Curve(curve_array = data, name = 'Current')
             feedback_curve.process('clip','norm',bkg=self.cBackground,
