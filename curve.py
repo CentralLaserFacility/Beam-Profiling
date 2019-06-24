@@ -119,7 +119,7 @@ class Curve:
             return 0
 
         except:
-            print("Can't open the file")
+            #print("Can't open the file")
             return -1
     
     def save(self, raw = False, pathname = None):
