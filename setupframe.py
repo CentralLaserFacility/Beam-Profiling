@@ -2,21 +2,22 @@
 from loopframe import LoopFrame #Must import LoopFrame first as it sets correct matplotlib backend.
 from curve import Curve, BkgCurve, TargetCurve
 import numpy as np
-import wx, time, os
+import wx, time, os, sys
 from header import (SCOPE_WAIT_TIME, 
                     SIMULATION, 
                     NO_ERR, 
                     DEFAULT_SCOPE_PV,
                     LIBRARY_FILES_LOCATION, 
                     AWG_NS_PER_POINT)
+
+if sys.version_info[0] < 3:
+    import ConfigParser as cp
+else:
+    import configparser as cp
+
 import epics
 from epics.wx import EpicsFunction, DelayedEpicsCallback
 
-# begin wxGlade: dependencies
-# end wxGlade
-
-# begin wxGlade: extracode
-# end wxGlade
 
 class SetupFrame(wx.Frame):
     def __init__(self, *args, **kwds):
@@ -96,7 +97,10 @@ class SetupFrame(wx.Frame):
             self.scope_pv_text_ctrl.SetBackgroundColour('#0aff05')
         else:
             self.scope_pv_text_ctrl.SetBackgroundColour('#cc99ff')
-        #self.scope_pv_text_ctrl.Refresh()
+
+        # Load old parameters
+        self.load_state()
+        
 
     def __set_properties(self):
         # begin wxGlade: SetupFrame.__set_properties
@@ -253,7 +257,7 @@ class SetupFrame(wx.Frame):
             pass
 
     @EpicsFunction
-    def on_scope_pv(self,event): # wxGlade: SetupFrame.<event_handler>
+    def on_scope_pv(self,event): 
         """ Connects to pv when user hits enter. Uses PyEpics. """
         self.scope_pv_name = self.scope_pv_text_ctrl.GetValue().strip()
         self.scope_pv = epics.PV(self.scope_pv_name, connection_callback=self.on_pv_connect)
@@ -277,10 +281,11 @@ class SetupFrame(wx.Frame):
 
 
     def closeWindow(self, event):
+        self.save_state()
         self.Destroy()
 
 
-    def on_browse(self, event):  # wxGlade: SetupFrame.<event_handler>
+    def on_browse(self, event):  
 
         frame = wx.Frame(None, -1, "Load a curve")
 
@@ -298,7 +303,7 @@ class SetupFrame(wx.Frame):
         frame.Destroy()
 
 
-    def on_preview(self, event):  # wxGlade: SetupFrame.<event_handler>
+    def on_preview(self, event):  
         if event.GetEventObject().GetName() == 'bkg_prv':
             reason = 'bkg'
             curve = self.cBackground
@@ -316,31 +321,9 @@ class SetupFrame(wx.Frame):
             curve.plot_processed()
         else:
             self.show_error("Couldn't read the curve", "Preview error")
-
-
-
-
-    def load(self, reason):
-        num_pts = int(float(self.plength_text_ctrl.GetValue())/AWG_NS_PER_POINT)
-
-        if reason == 'bkg':
-            pathname = self.bkg_path_text_ctrl.GetValue()
-            err = self.cBackground.load(num_points=num_pts, trim_method = 'off', data = str(pathname))
-        elif reason == 'tgt_file':
-            pathname = self.target_path_text_ctrl.GetValue()
-            err = self.cTargetFile.load(num_points=num_pts, trim_method = 'resample', data = str(pathname))
-            self.cTargetFile.process('clip','norm', resample = num_pts)
-        elif reason == 'library':
-            pathname = LIBRARY_FILES_LOCATION + self.library_combo_box.GetStringSelection() + ".curve"
-            err = self.cTargetFile.load(num_points=num_pts, trim_method = 'resample', data = str(pathname))
-            self.cTargetFile.process('clip','norm', resample = num_pts)
-        elif reason == 'trace':
-            pass
-            err = 0
-        return err
-
-
-    def on_grab_trace(self, event):  # wxGlade: SetupFrame.<event_handler>
+  
+  
+    def on_grab_trace(self, event):  
         ''' Grabs a user defined number of traces from the scope'''
         num_to_average = int(self.trc_avg.GetValue())
         datas=[]
@@ -368,12 +351,12 @@ class SetupFrame(wx.Frame):
             self.show_error(caption, "Error when averaging scope data")
 
 
-    def on_trace_save(self, event):  # wxGlade: SetupFrame.<event_handler>
+    def on_trace_save(self, event):  
         self.cTrace.save(raw = True)
 
 
-    def on_go(self, event):  # wxGlade: SetupFrame.<event_handler>
-        gain = float(self.gain_txt_ctrl.GetValue())
+    def on_go(self, event):  
+        gain = float(self.gain_txt_ctrl.GetValue()) 
         num_points = int(float(self.plength_text_ctrl.GetValue())/AWG_NS_PER_POINT)
         start = int(self.scope_start_text_ctrl.GetValue())
         length = int(self.scope_length_text_control.GetValue())
@@ -398,9 +381,7 @@ class SetupFrame(wx.Frame):
             temp[400:500]=0
             start_curve = Curve(curve_array = temp)
             start_curve.process('clip','norm',bkg=self.cBackground,
-                crop = cropping , resample = num_points)
-
-            
+                crop = cropping , resample = num_points)           
         else:
             if not self.scope_pv.connected:
                 self.show_error("Can't connect to scope PV", "Scope read error")
@@ -421,6 +402,27 @@ class SetupFrame(wx.Frame):
         else:
             self.show_error("Couldn't open the background and/or target files", "File open error")
 
+
+    def load(self, reason):
+        num_pts = int(float(self.plength_text_ctrl.GetValue())/AWG_NS_PER_POINT)
+
+        if reason == 'bkg':
+            pathname = self.bkg_path_text_ctrl.GetValue()
+            err = self.cBackground.load(num_points=num_pts, trim_method = 'off', data = str(pathname))
+        elif reason == 'tgt_file':
+            pathname = self.target_path_text_ctrl.GetValue()
+            err = self.cTargetFile.load(num_points=num_pts, trim_method = 'resample', data = str(pathname))
+            self.cTargetFile.process('clip','norm', resample = num_pts)
+        elif reason == 'library':
+            pathname = LIBRARY_FILES_LOCATION + self.library_combo_box.GetStringSelection() + ".curve"
+            err = self.cTargetFile.load(num_points=num_pts, trim_method = 'resample', data = str(pathname))
+            self.cTargetFile.process('clip','norm', resample = num_pts)
+        elif reason == 'trace':
+            pass
+            err = 0
+        return err
+
+
     def show_error(self, msg, cap):
         err = wx.MessageDialog(self, msg, cap,
             style=wx.ICON_ERROR)
@@ -430,4 +432,49 @@ class SetupFrame(wx.Frame):
     def run_loop(self, start_curve, target_curve, gain, iterations, tolerance, max_percent_change):
         self.loop = LoopFrame(self,start_curve, target_curve, gain, iterations, tolerance, max_percent_change)
         
-# end of class SetupFrame
+
+    def save_state(self, filename = './state.txt'):
+        config = cp.RawConfigParser()
+        config.add_section('Traces')
+        config.add_section('Scope')
+        config.add_section('Parms')
+        config.set('Traces', 'bkg_path', self.bkg_path_text_ctrl.GetValue())
+        config.set('Traces', 'tkg_path', self.target_path_text_ctrl.GetValue())
+        config.set('Traces', 'lib_index', self.library_combo_box.GetCurrentSelection())
+        config.set('Scope', 'scope_pv', self.scope_pv_text_ctrl.GetValue())
+        config.set('Scope', 'averages', self.trc_avg.GetValue())
+        config.set('Scope', 'start', self.scope_start_text_ctrl.GetValue()) 
+        config.set('Scope', 'length', self.scope_length_text_control.GetValue()) 
+        config.set('Parms', 'tgt_src', self.tgt_src_cb.GetSelection())
+        config.set('Parms', 'pulse_length', self.plength_text_ctrl.GetValue())
+        config.set('Parms', 'gain', self.gain_txt_ctrl.GetValue())
+        config.set('Parms', 'iterations', self.iterations_txt_ctrl.GetValue())
+        config.set('Parms', 'tolerance', self.tolerance_txt_ctrl.GetValue())
+        config.set('Parms', 'max_change', self.max_change_txt_ctrl.GetValue())
+        config.set('Parms', 'save_files', self.diag_files_radio_box.GetSelection())
+
+        with open(filename, 'w') as configfile:
+            config.write(configfile)
+
+
+    def load_state(self, filename = './state.txt'):
+        config = cp.RawConfigParser()
+        config.read(filename)
+        try:
+            self.bkg_path_text_ctrl.SetValue(config.get('Traces', 'bkg_path')) 
+            self.target_path_text_ctrl.SetValue(config.get('Traces', 'tkg_path'))              
+            self.scope_pv_text_ctrl.SetValue(config.get('Scope', 'scope_pv')) 
+            self.trc_avg.SetValue(config.get('Scope', 'averages')) 
+            self.scope_start_text_ctrl.SetValue(config.get('Scope', 'start')) 
+            self.scope_length_text_control.SetValue(config.get('Scope', 'length')) 
+            self.tgt_src_cb.SetSelection(config.getint('Parms', 'tgt_src')) 
+            self.plength_text_ctrl.SetValue(config.get('Parms', 'pulse_length')) 
+            self.gain_txt_ctrl.SetValue(config.get('Parms', 'gain')) 
+            self.iterations_txt_ctrl.SetValue(config.get('Parms', 'iterations')) 
+            self.tolerance_txt_ctrl.SetValue(config.get('Parms', 'tolerance')) 
+            self.max_change_txt_ctrl.SetValue(config.get('Parms', 'max_change')) 
+            self.diag_files_radio_box.SetSelection(config.getint('Parms', 'save_files'))
+            self.library_combo_box.SetSelection(config.getint('Traces', 'lib_index'))
+        except:
+            pass
+       
