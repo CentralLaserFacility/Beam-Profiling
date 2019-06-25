@@ -21,7 +21,7 @@ from epics.wx import EpicsFunction, DelayedEpicsCallback
 
 class SetupFrame(wx.Frame):
     def __init__(self, *args, **kwds):
-        # begin wxGlade: SetupFrame.__init__
+
         wx.Frame.__init__(self, *args, pos=wx.Point(50,50)) # *args, **kwds)
         self.bkg_choice_panel = wx.Panel(self, wx.ID_ANY)
         self.bkg_path_text_ctrl = wx.TextCtrl(self.bkg_choice_panel, wx.ID_ANY, "Path to background file")
@@ -62,9 +62,11 @@ class SetupFrame(wx.Frame):
         self.diag_files_radio_box = wx.RadioBox(self, wx.ID_ANY, "Save files?", choices=["Yes", "No"], majorDimension=2, style=wx.RA_SPECIFY_COLS)
         self.go_button = wx.Button(self, wx.ID_ANY, "Go")
 
+        # Set windows layout and properties
         self.__set_properties()
         self.__do_layout()
-
+        
+        # Event bindings
         self.Bind(wx.EVT_BUTTON, self.on_browse, self.bkg_browse_button)
         self.Bind(wx.EVT_BUTTON, self.on_preview, self.bkg_preview_button)
         self.Bind(wx.EVT_BUTTON, self.on_browse, self.target_browse_button)
@@ -75,7 +77,6 @@ class SetupFrame(wx.Frame):
         self.Bind(wx.EVT_BUTTON, self.on_preview, self.target_preview_button)
         self.Bind(wx.EVT_BUTTON, self.on_trace_save, self.save_trace_button)
         self.Bind(wx.EVT_BUTTON, self.on_go, self.go_button)
-        # end wxGlade
         self.Bind(wx.EVT_CLOSE, self.closeWindow)
         self.Bind(wx.EVT_TEXT_ENTER, self.on_scope_pv, self.scope_pv_text_ctrl)
         self.plength_text_ctrl.Bind(wx.EVT_KILL_FOCUS, self.coerce_pulse_length)
@@ -90,8 +91,10 @@ class SetupFrame(wx.Frame):
         # Find the library curves
         self.popluate_library_combobox()
 
-        # Create scope pv and connect
+        # Create scope pvs and connect
         self.scope_pv_name = self.scope_pv_text_ctrl.GetValue().strip()
+        self.time_resolution_pv_name = self.scope_pv_name.split(':')[0] + ":SetResolution"
+        self.time_resolution_pv = epics.PV(self.time_resolution_pv_name)
         self.scope_pv = epics.PV(self.scope_pv_name, connection_callback=self.on_pv_connect)
         if self.scope_pv.connected:
             self.scope_pv_text_ctrl.SetBackgroundColour('#0aff05')
@@ -102,138 +105,20 @@ class SetupFrame(wx.Frame):
         self.load_state()
         
 
-    def __set_properties(self):
-        # begin wxGlade: SetupFrame.__set_properties
-        _title = "Beam profiling simulation" if SIMULATION == True else "Beam Profiling"
-        self.SetTitle(_title)
-        self.SetSize((1049, 447))
-        self.SetBackgroundColour('#f1f1f1')
-        self.bkg_browse_button.SetSize(self.bkg_browse_button.GetBestSize())
-        self.bkg_browse_button.SetDefault()
-        self.bkg_preview_button.SetSize(self.bkg_preview_button.GetBestSize())
-        self.bkg_preview_button.SetDefault()
-        self.target_browse_button.SetSize(self.target_browse_button.GetBestSize())
-        self.target_browse_button.SetDefault()
-        self.trace_preview_button.SetSize(self.trace_preview_button.GetBestSize())
-        self.trace_preview_button.SetDefault()
-        self.library_combo_box.SetFont(wx.Font(11, wx.DEFAULT, wx.NORMAL, wx.NORMAL, 0, "Ubuntu"))
-        self.library_combo_box.SetSelection(0)
-        self.library_preview_button.SetSize(self.library_preview_button.GetBestSize())
-        self.library_preview_button.SetDefault()
-        self.target_preview_button.SetSize(self.target_preview_button.GetBestSize())
-        self.target_preview_button.SetDefault()
-        self.save_trace_button.SetSize(self.save_trace_button.GetBestSize())
-        self.tgt_src_cb.SetSelection(0)
-        self.diag_files_radio_box.SetSelection(0)
-        self.go_button.SetBackgroundColour(wx.Colour(10, 255, 5))
-        self.go_button.SetFont(wx.Font(14, wx.DEFAULT, wx.NORMAL, wx.BOLD, 0, ""))
-        # end wxGlade
-        self.bkg_preview_button.SetName('bkg_prv')
-        self.bkg_browse_button.SetName('bkg_browse')
-        self.target_browse_button.SetName('tgt_browse')
-        self.target_preview_button.SetName('tgt_prv')
-        self.library_preview_button.SetName('lby_prv')
-        self.trace_preview_button.SetName('trace_prv')
-        self.gain_txt_ctrl.SetName('gain_ctrl')
-
-    def __do_layout(self):
-        # begin wxGlade: SetupFrame.__do_layout
-        main_sizer = wx.BoxSizer(wx.VERTICAL)
-        loop_szr = wx.BoxSizer(wx.HORIZONTAL)
-        loop_settings_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.max_change_sizer_staticbox.Lower()
-        max_change_sizer = wx.StaticBoxSizer(self.max_change_sizer_staticbox, wx.HORIZONTAL)
-        self.tolerance_sizer_staticbox.Lower()
-        tolerance_sizer = wx.StaticBoxSizer(self.tolerance_sizer_staticbox, wx.HORIZONTAL)
-        self.iterations_sizer_staticbox.Lower()
-        iterations_sizer = wx.StaticBoxSizer(self.iterations_sizer_staticbox, wx.HORIZONTAL)
-        self.gain_sizer_staticbox.Lower()
-        gain_sizer = wx.StaticBoxSizer(self.gain_sizer_staticbox, wx.HORIZONTAL)
-        scope_szr = wx.BoxSizer(wx.HORIZONTAL)
-        tgt_src_szr = wx.BoxSizer(wx.HORIZONTAL)
-        self.plength_szr_staticbox.Lower()
-        point_szr = wx.StaticBoxSizer(self.plength_szr_staticbox, wx.HORIZONTAL)
-        self.src_cb_szr_staticbox.Lower()
-        src_cb_szr = wx.StaticBoxSizer(self.src_cb_szr_staticbox, wx.HORIZONTAL)
-        self.scope_slice_sizer_staticbox.Lower()
-        scope_slice_sizer = wx.StaticBoxSizer(self.scope_slice_sizer_staticbox, wx.HORIZONTAL)
-        self.scope_pv_szr_staticbox.Lower()
-        scope_pv_szr = wx.StaticBoxSizer(self.scope_pv_szr_staticbox, wx.HORIZONTAL)
-        self.trc_avg_szr_staticbox.Lower()
-        trc_avg_szr = wx.StaticBoxSizer(self.trc_avg_szr_staticbox, wx.HORIZONTAL)
-        library_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.library_file_sizer_staticbox.Lower()
-        library_file_sizer = wx.StaticBoxSizer(self.library_file_sizer_staticbox, wx.HORIZONTAL)
-        target_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.target_file_sizer_staticbox.Lower()
-        target_file_sizer = wx.StaticBoxSizer(self.target_file_sizer_staticbox, wx.HORIZONTAL)
-        bkg_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.bkgfile_sizer_staticbox.Lower()
-        bkgfile_sizer = wx.StaticBoxSizer(self.bkgfile_sizer_staticbox, wx.HORIZONTAL)
-        bkgfile_sizer.Add(self.bkg_path_text_ctrl, 2, wx.EXPAND, 0)
-        bkgfile_sizer.Add(self.bkg_browse_button, 0, wx.ALIGN_CENTER_VERTICAL, 0)
-        self.bkg_choice_panel.SetSizer(bkgfile_sizer)
-        bkg_sizer.Add(self.bkg_choice_panel, 2, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
-        bkg_sizer.Add((20, 10), 0, wx.ALIGN_CENTER_VERTICAL, 0)
-        bkg_sizer.Add(self.bkg_preview_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
-        main_sizer.Add(bkg_sizer, 1, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
-        main_sizer.Add((20, 10), 0, 0, 0)
-        target_file_sizer.Add(self.target_path_text_ctrl, 2, wx.EXPAND, 0)
-        target_file_sizer.Add(self.target_browse_button, 0, wx.ALIGN_CENTER_VERTICAL, 0)
-        self.target_choice_panel.SetSizer(target_file_sizer)
-        target_sizer.Add(self.target_choice_panel, 2, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
-        target_sizer.Add((20, 20), 0, wx.ALIGN_CENTER_VERTICAL, 0)
-        target_sizer.Add(self.target_preview_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
-        main_sizer.Add(target_sizer, 1, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
-        main_sizer.Add((20, 10), 0, 0, 0)
-        library_file_sizer.Add(self.library_combo_box, 4, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
-        self.library_choice_panel.SetSizer(library_file_sizer)
-        library_sizer.Add(self.library_choice_panel, 2, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
-        library_sizer.Add((20, 10), 0, wx.ALIGN_CENTER_VERTICAL, 0)
-        library_sizer.Add(self.library_preview_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
-        main_sizer.Add(library_sizer, 1, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
-        main_sizer.Add((500, 10), 0, 0, 0)
-        scope_pv_szr.Add(self.scope_pv_text_ctrl, 2, wx.EXPAND, 0)
-        scope_pv_szr.Add(self.grab_trace_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
-        trc_avg_szr.Add(self.trc_avg, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
-        scope_pv_szr.Add(trc_avg_szr, 0, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
-        scope_pv_szr.Add(self.trace_preview_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
-        scope_pv_szr.Add(self.save_trace_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
-        scope_szr.Add(scope_pv_szr, 3, wx.EXPAND, 0)
-        scope_slice_sizer.Add(self.scope_start_text_ctrl, 1, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
-        scope_slice_sizer.Add(self.scope_length_text_control, 1, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
-        scope_szr.Add(scope_slice_sizer, 1, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
-        tgt_src_szr.Add((10, 20), 0, 0, 0)
-        src_cb_szr.Add(self.tgt_src_cb, 1, wx.EXPAND, 0)
-        tgt_src_szr.Add(src_cb_szr, 1, wx.EXPAND, 0)
-        tgt_src_szr.Add((10, 20), 0, 0, 0)
-        point_szr.Add(self.plength_text_ctrl, 1, wx.EXPAND, 0)
-        tgt_src_szr.Add(point_szr, 1, wx.EXPAND, 0)
-        scope_szr.Add(tgt_src_szr, 1, 0, 0)
-        main_sizer.Add(scope_szr, 1, wx.EXPAND, 0)
-        main_sizer.Add((500, 30), 0, 0, 0)
-        gain_sizer.Add(self.gain_txt_ctrl, 1, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
-        loop_settings_sizer.Add(gain_sizer, 1, wx.BOTTOM | wx.EXPAND | wx.RIGHT, 0)
-        iterations_sizer.Add(self.iterations_txt_ctrl, 1, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
-        loop_settings_sizer.Add(iterations_sizer, 1, wx.EXPAND, 0)
-        tolerance_sizer.Add(self.tolerance_txt_ctrl, 1, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
-        loop_settings_sizer.Add(tolerance_sizer, 1, wx.EXPAND, 0)
-        max_change_sizer.Add(self.max_change_txt_ctrl, 1, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
-        loop_settings_sizer.Add(max_change_sizer, 1, wx.EXPAND, 0)
-        loop_settings_sizer.Add(self.diag_files_radio_box, 0, wx.ALIGN_CENTER | wx.EXPAND, 0)
-        loop_szr.Add(loop_settings_sizer, 4, wx.ALL | wx.EXPAND, 0)
-        loop_szr.Add(self.go_button, 1, wx.EXPAND, 0)
-        main_sizer.Add(loop_szr, 1, wx.EXPAND, 0)
-        self.SetSizer(main_sizer)
-        self.Layout()
-
-        # end wxGlade
+#####################################################################################
+# Event handlers
+#####################################################################################
 
     def coerce_pulse_length(self, event):
         desired_length = float(self.plength_text_ctrl.GetValue())
         remainder = desired_length % AWG_NS_PER_POINT
-        if  remainder != 0:
-            self.plength_text_ctrl.SetValue(str(desired_length - remainder))
+        coerced_length = desired_length - remainder
+        self.plength_text_ctrl.SetValue(str(coerced_length))
+        # Set the correct slice length
+        if not self.time_resolution_pv.connected:
+            return
+        self.scope_length_text_control.SetValue(
+            str(int(coerced_length*1e-9/self.time_resolution_pv.get())))
         event.Skip()
     
     def coerce_value(self, event):
@@ -244,17 +129,6 @@ class SetupFrame(wx.Frame):
         val = np.clip(float(obj.GetValue()),min,max)
         obj.SetValue(str(val))
         #event.Skip()
-            
-
-    def popluate_library_combobox(self):
-        try:
-            files = os.listdir(LIBRARY_FILES_LOCATION)
-            for f in files:
-                pieces = f.split('.')
-                if pieces[1] == 'curve':
-                    self.library_combo_box.Append(pieces[0])
-        except:
-            pass
 
     @EpicsFunction
     def on_scope_pv(self,event): 
@@ -368,13 +242,11 @@ class SetupFrame(wx.Frame):
             self.show_error("Can't load background curve", "File error")
             return
         if self.tgt_src_cb.GetSelection() == 1:
-            target_curve = self.cTargetFile
             target_loaded = self.load('tgt_file')
         else:
-            target_curve = self.cTargetFile
             target_loaded = self.load('library')
 
-        # Get the latest date for the feedback curve
+        # Get the latest data for the feedback curve
         if SIMULATION:
             temp=0.5*np.ones(np.size(self.cBackground.get_raw()))
             temp[250:350]=0
@@ -386,22 +258,19 @@ class SetupFrame(wx.Frame):
             if not self.scope_pv.connected:
                 self.show_error("Can't connect to scope PV", "Scope read error")
                 return
-            data = self.scope_pv.get()
-            time.sleep(SCOPE_WAIT_TIME)
-            feedback_curve = Curve(curve_array = data, name = 'Current')
-            feedback_curve.process('clip','norm',bkg=self.cBackground,
-                crop = cropping , resample = num_points)
-            start_curve = feedback_curve
 
         # Run the loop if files whre succefully loaded
         if bkg_loaded == NO_ERR and target_loaded == NO_ERR :
-            iterations = int(self.iterations_txt_ctrl.GetValue())
-            tolerance = float(self.tolerance_txt_ctrl.GetValue())
-            max_percent_change = int(self.max_change_txt_ctrl.GetValue())
-            self.run_loop(start_curve, target_curve, gain, iterations, tolerance, max_percent_change)
+            self.run_loop()
         else:
             self.show_error("Couldn't open the background and/or target files", "File open error")
 
+
+
+
+#####################################################################################
+# 
+#####################################################################################
 
     def load(self, reason):
         num_pts = int(float(self.plength_text_ctrl.GetValue())/AWG_NS_PER_POINT)
@@ -423,15 +292,32 @@ class SetupFrame(wx.Frame):
         return err
 
 
-    def show_error(self, msg, cap):
-        err = wx.MessageDialog(self, msg, cap,
-            style=wx.ICON_ERROR)
-        err.ShowModal()
-
-
-    def run_loop(self, start_curve, target_curve, gain, iterations, tolerance, max_percent_change):
-        self.loop = LoopFrame(self,start_curve, target_curve, gain, iterations, tolerance, max_percent_change)
+    def run_loop(self):
+        iterations = int(self.iterations_txt_ctrl.GetValue())
+        tolerance = float(self.tolerance_txt_ctrl.GetValue())
+        max_percent_change = int(self.max_change_txt_ctrl.GetValue())
+        gain = float(self.gain_txt_ctrl.GetValue()) 
+        pulse_length = float(self.plength_text_ctrl.GetValue())
+        start = int(self.scope_start_text_ctrl.GetValue())
+        if not SIMULATION:
+            length = int(int(pulse_length*1e-9/self.time_resolution_pv.get()))
+        else:
+            length = int(self.scope_length_text_control.GetValue())
+        #length = int(self.scope_length_text_control.GetValue())
+        scope_pv = self.scope_pv
+        time_res_pv = self.time_resolution_pv
+        target = self.cTargetFile
+        background = self.cBackground
+        save_diag_files = True if self.diag_files_radio_box.GetSelection() == 0 else False
+        averages = int(self.trc_avg.GetValue())
         
+        self.loop = LoopFrame(self, target, background, pulse_length, start, length, scope_pv, time_res_pv,
+                                averages, gain, iterations, tolerance, max_percent_change, save_diag_files)
+
+
+#####################################################################################
+# Utility functions
+#####################################################################################
 
     def save_state(self, filename = './state.txt'):
         config = cp.RawConfigParser()
@@ -456,7 +342,6 @@ class SetupFrame(wx.Frame):
         with open(filename, 'w') as configfile:
             config.write(configfile)
 
-
     def load_state(self, filename = './state.txt'):
         config = cp.RawConfigParser()
         config.read(filename)
@@ -478,3 +363,141 @@ class SetupFrame(wx.Frame):
         except:
             pass
        
+    def show_error(self, msg, cap):
+        err = wx.MessageDialog(self, msg, cap,
+            style=wx.ICON_ERROR)
+        err.ShowModal()
+
+    def popluate_library_combobox(self):
+        try:
+            files = os.listdir(LIBRARY_FILES_LOCATION)
+            for f in files:
+                pieces = f.split('.')
+                if pieces[1] == 'curve':
+                    self.library_combo_box.Append(pieces[0])
+        except:
+            pass
+    
+    def __set_properties(self):
+        _title = "Beam profiling simulation" if SIMULATION == True else "Beam Profiling"
+        self.SetTitle(_title)
+        self.SetSize((1049, 447))
+        self.SetBackgroundColour('#f1f1f1')
+        self.bkg_browse_button.SetSize(self.bkg_browse_button.GetBestSize())
+        self.bkg_browse_button.SetDefault()
+        self.bkg_preview_button.SetSize(self.bkg_preview_button.GetBestSize())
+        self.bkg_preview_button.SetDefault()
+        self.target_browse_button.SetSize(self.target_browse_button.GetBestSize())
+        self.target_browse_button.SetDefault()
+        self.trace_preview_button.SetSize(self.trace_preview_button.GetBestSize())
+        self.trace_preview_button.SetDefault()
+        self.library_combo_box.SetFont(wx.Font(11, wx.DEFAULT, wx.NORMAL, wx.NORMAL, 0, "Ubuntu"))
+        self.library_combo_box.SetSelection(0)
+        self.library_preview_button.SetSize(self.library_preview_button.GetBestSize())
+        self.library_preview_button.SetDefault()
+        self.target_preview_button.SetSize(self.target_preview_button.GetBestSize())
+        self.target_preview_button.SetDefault()
+        self.save_trace_button.SetSize(self.save_trace_button.GetBestSize())
+        self.tgt_src_cb.SetSelection(0)
+        self.diag_files_radio_box.SetSelection(0)
+        self.go_button.SetBackgroundColour(wx.Colour(10, 255, 5))
+        self.go_button.SetFont(wx.Font(14, wx.DEFAULT, wx.NORMAL, wx.BOLD, 0, ""))
+        self.bkg_preview_button.SetName('bkg_prv')
+        self.bkg_browse_button.SetName('bkg_browse')
+        self.target_browse_button.SetName('tgt_browse')
+        self.target_preview_button.SetName('tgt_prv')
+        self.library_preview_button.SetName('lby_prv')
+        self.trace_preview_button.SetName('trace_prv')
+        self.gain_txt_ctrl.SetName('gain_ctrl')
+
+    def __do_layout(self):
+        main_sizer = wx.BoxSizer(wx.VERTICAL)
+        loop_szr = wx.BoxSizer(wx.HORIZONTAL)
+        loop_settings_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.max_change_sizer_staticbox.Lower()
+        max_change_sizer = wx.StaticBoxSizer(self.max_change_sizer_staticbox, wx.HORIZONTAL)
+        self.tolerance_sizer_staticbox.Lower()
+        tolerance_sizer = wx.StaticBoxSizer(self.tolerance_sizer_staticbox, wx.HORIZONTAL)
+        self.iterations_sizer_staticbox.Lower()
+        iterations_sizer = wx.StaticBoxSizer(self.iterations_sizer_staticbox, wx.HORIZONTAL)
+        self.gain_sizer_staticbox.Lower()
+        gain_sizer = wx.StaticBoxSizer(self.gain_sizer_staticbox, wx.HORIZONTAL)
+        scope_szr = wx.BoxSizer(wx.HORIZONTAL)
+        tgt_src_szr = wx.BoxSizer(wx.HORIZONTAL)
+        self.plength_szr_staticbox.Lower()
+        point_szr = wx.StaticBoxSizer(self.plength_szr_staticbox, wx.HORIZONTAL)
+        self.src_cb_szr_staticbox.Lower()
+        src_cb_szr = wx.StaticBoxSizer(self.src_cb_szr_staticbox, wx.HORIZONTAL)
+        self.scope_slice_sizer_staticbox.Lower()
+        scope_slice_sizer = wx.StaticBoxSizer(self.scope_slice_sizer_staticbox, wx.HORIZONTAL)
+        self.scope_pv_szr_staticbox.Lower()
+        scope_pv_szr = wx.StaticBoxSizer(self.scope_pv_szr_staticbox, wx.HORIZONTAL)
+        self.trc_avg_szr_staticbox.Lower()
+        trc_avg_szr = wx.StaticBoxSizer(self.trc_avg_szr_staticbox, wx.HORIZONTAL)
+        library_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.library_file_sizer_staticbox.Lower()
+        library_file_sizer = wx.StaticBoxSizer(self.library_file_sizer_staticbox, wx.HORIZONTAL)
+        target_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.target_file_sizer_staticbox.Lower()
+        target_file_sizer = wx.StaticBoxSizer(self.target_file_sizer_staticbox, wx.HORIZONTAL)
+        bkg_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.bkgfile_sizer_staticbox.Lower()
+        bkgfile_sizer = wx.StaticBoxSizer(self.bkgfile_sizer_staticbox, wx.HORIZONTAL)
+        bkgfile_sizer.Add(self.bkg_path_text_ctrl, 2, wx.EXPAND, 0)
+        bkgfile_sizer.Add(self.bkg_browse_button, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        self.bkg_choice_panel.SetSizer(bkgfile_sizer)
+        bkg_sizer.Add(self.bkg_choice_panel, 2, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
+        bkg_sizer.Add((20, 10), 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        bkg_sizer.Add(self.bkg_preview_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
+        main_sizer.Add(bkg_sizer, 1, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
+        main_sizer.Add((20, 10), 0, 0, 0)
+        target_file_sizer.Add(self.target_path_text_ctrl, 2, wx.EXPAND, 0)
+        target_file_sizer.Add(self.target_browse_button, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        self.target_choice_panel.SetSizer(target_file_sizer)
+        target_sizer.Add(self.target_choice_panel, 2, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
+        target_sizer.Add((20, 20), 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        target_sizer.Add(self.target_preview_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
+        main_sizer.Add(target_sizer, 1, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
+        main_sizer.Add((20, 10), 0, 0, 0)
+        library_file_sizer.Add(self.library_combo_box, 4, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
+        self.library_choice_panel.SetSizer(library_file_sizer)
+        library_sizer.Add(self.library_choice_panel, 2, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
+        library_sizer.Add((20, 10), 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        library_sizer.Add(self.library_preview_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
+        main_sizer.Add(library_sizer, 1, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
+        main_sizer.Add((500, 10), 0, 0, 0)
+        scope_pv_szr.Add(self.scope_pv_text_ctrl, 2, wx.EXPAND, 0)
+        scope_pv_szr.Add(self.grab_trace_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
+        trc_avg_szr.Add(self.trc_avg, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
+        scope_pv_szr.Add(trc_avg_szr, 0, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
+        scope_pv_szr.Add(self.trace_preview_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
+        scope_pv_szr.Add(self.save_trace_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
+        scope_szr.Add(scope_pv_szr, 3, wx.EXPAND, 0)
+        scope_slice_sizer.Add(self.scope_start_text_ctrl, 1, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
+        scope_slice_sizer.Add(self.scope_length_text_control, 1, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
+        scope_szr.Add(scope_slice_sizer, 1, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
+        tgt_src_szr.Add((10, 20), 0, 0, 0)
+        src_cb_szr.Add(self.tgt_src_cb, 1, wx.EXPAND, 0)
+        tgt_src_szr.Add(src_cb_szr, 1, wx.EXPAND, 0)
+        tgt_src_szr.Add((10, 20), 0, 0, 0)
+        point_szr.Add(self.plength_text_ctrl, 1, wx.EXPAND, 0)
+        tgt_src_szr.Add(point_szr, 1, wx.EXPAND, 0)
+        scope_szr.Add(tgt_src_szr, 1, 0, 0)
+        main_sizer.Add(scope_szr, 1, wx.EXPAND, 0)
+        main_sizer.Add((500, 30), 0, 0, 0)
+        gain_sizer.Add(self.gain_txt_ctrl, 1, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
+        loop_settings_sizer.Add(gain_sizer, 1, wx.BOTTOM | wx.EXPAND | wx.RIGHT, 0)
+        iterations_sizer.Add(self.iterations_txt_ctrl, 1, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
+        loop_settings_sizer.Add(iterations_sizer, 1, wx.EXPAND, 0)
+        tolerance_sizer.Add(self.tolerance_txt_ctrl, 1, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
+        loop_settings_sizer.Add(tolerance_sizer, 1, wx.EXPAND, 0)
+        max_change_sizer.Add(self.max_change_txt_ctrl, 1, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
+        loop_settings_sizer.Add(max_change_sizer, 1, wx.EXPAND, 0)
+        loop_settings_sizer.Add(self.diag_files_radio_box, 0, wx.ALIGN_CENTER | wx.EXPAND, 0)
+        loop_szr.Add(loop_settings_sizer, 4, wx.ALL | wx.EXPAND, 0)
+        loop_szr.Add(self.go_button, 1, wx.EXPAND, 0)
+        main_sizer.Add(loop_szr, 1, wx.EXPAND, 0)
+        self.SetSizer(main_sizer)
+        self.Layout()
+
+        
