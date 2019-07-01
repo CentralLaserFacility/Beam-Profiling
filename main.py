@@ -4,9 +4,6 @@
 # scope. To test the software without hardware connected set the SIMULATION flag to TRUE
 # in the config.ini file
 #
-# Stuff remaining to be done:
-#   - Validate entries for all the user defined numbers in the GUI
-#   - Add config files so that fields are populated with previous values and setups can be saved/loaded
 #########################################################################################
 import os, wx
 

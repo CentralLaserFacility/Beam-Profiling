@@ -119,7 +119,7 @@ class Curve:
             return 0
 
         except:
-            print("Can't open the file")
+            #print("Can't open the file")
             return -1
     
     def save(self, raw = False, pathname = None):
@@ -233,11 +233,12 @@ class Curve:
             # value of "bkg" should be an instance of Curve
             #print "Sizes %d %d" % (np.size(self._processed), np.size(val_bkg.get_raw()) )
             self._processed = self._processed - val_bkg.get_raw()
-            pass
         if do_crop:
-            self._processed = self._processed[val_crop[0]:val_crop[0+1]]
+            start = val_crop[0]
+            stop = val_crop[0] + val_crop[1]
+            self._processed = self._processed[start:stop]
         if do_resample:
-            self._processed = self._resample(self._processed, val_resample)           
+            self._processed = self._resample(self._processed, val_resample)  
         if do_clip:
             self._processed = self._clip_neg(self._processed)
         if do_norm:
@@ -246,8 +247,7 @@ class Curve:
     # Needs rewrite to average over blocks of 5 points at a time
     def _resample(self, data, npoints):
         im = np.arange(0,len(data))
-        factor = len(data)/float(npoints)
-        ip = np.arange(0, len(data), factor)
+        ip = np.linspace(0,len(data),npoints)
         p = np.interp(ip, im, data)
         return p
 
@@ -356,7 +356,9 @@ class BkgCurve(Curve):
                 print("Unrecognised keyword: %s" % key)
 
         if do_crop:
-            self._processed = self._processed[val_crop[0]:val_crop[0+1]]
+            start = val_crop[0]
+            stop = val_crop[0] + val_crop[1]
+            self._processed = self._processed[start:stop]
         if do_resample:
             self._processed = self._resample(self._processed, val_resample)           
         if do_clip:
@@ -434,7 +436,9 @@ class TargetCurve(Curve):
                 print("Unrecognised keyword: %s" % key)
 
         if do_crop:
-            self._processed = self._processed[val_crop[0]:val_crop[0+1]]
+            start = val_crop[0]
+            stop = val_crop[0] + val_crop[1]
+            self._processed = self._processed[start:stop]
         if do_resample:
             self._processed = self._resample(self._processed, val_resample)           
         if do_clip:
