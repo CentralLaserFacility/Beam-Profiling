@@ -45,7 +45,7 @@ class SetupFrame(wx.Frame):
         self.save_trace_button = wx.BitmapButton(self, wx.ID_ANY, wx.Bitmap("./gui_files/Save.png", wx.BITMAP_TYPE_ANY))
         self.scope_pv_szr_staticbox = wx.StaticBox(self, wx.ID_ANY, "Scope PV")
         self.scope_start_text_ctrl = wx.TextCtrl(self, wx.ID_ANY, "273", style=wx.TE_CENTRE)
-        self.scope_length_text_control = wx.TextCtrl(self, wx.ID_ANY, "410", style=wx.TE_CENTRE)
+        self.scope_length_text_control = wx.TextCtrl(self, wx.ID_ANY, "410", style=wx.TE_CENTRE|wx.TE_READONLY)
         self.scope_slice_sizer_staticbox = wx.StaticBox(self, wx.ID_ANY, "Start point / length")
         self.tgt_src_cb = wx.ComboBox(self, wx.ID_ANY, choices=["Library", "File"], style=wx.CB_READONLY)
         self.src_cb_szr_staticbox = wx.StaticBox(self, wx.ID_ANY, "Target source")
@@ -116,6 +116,7 @@ class SetupFrame(wx.Frame):
         self.plength_text_ctrl.SetValue(str(coerced_length))
         # Set the correct slice length
         if not self.time_resolution_pv.connected:
+            event.Skip()
             return
         self.scope_length_text_control.SetValue(
             str(int(coerced_length*1e-9/self.time_resolution_pv.get())))
@@ -128,7 +129,7 @@ class SetupFrame(wx.Frame):
             max=1        
         val = np.clip(float(obj.GetValue()),min,max)
         obj.SetValue(str(val))
-        #event.Skip()
+        event.Skip()
 
     @EpicsFunction
     def on_scope_pv(self,event): 
