@@ -1,5 +1,6 @@
 from header import (SCOPE_WAIT_TIME, 
                     AWG_PREFIX, 
+                    AWG_WRITE_METHOD, 
                     SIMULATION, 
                     DIAG_FILE_LOCATION, 
                     AWG_ZERO_SHIFT,
@@ -7,7 +8,8 @@ from header import (SCOPE_WAIT_TIME,
                     ERR,
                     AWG_NS_PER_POINT,
                     PULSE_PEAK_POWER,
-                    AUTO_LOOP, 
+                    AUTO_LOOP,
+                    AUTO_LOOP_WAIT,
                     get_message_time)
 from awg import Awg
 import matplotlib
@@ -61,7 +63,7 @@ class LoopFrame(wx.Frame):
         if SIMULATION:
             self.current_output = self.simulate_start_data()    
         self.correction_factor = np.zeros(np.alen(self.current_output))
-        if not SIMULATION:
+        if 1: #not SIMULATION:
             self.awg = Awg(AWG_PREFIX, self.num_points , self.max_percent_change)
         
         # Create a panel to hold a log output
@@ -76,13 +78,6 @@ class LoopFrame(wx.Frame):
         log_stream = RedirectText(log)
         self.standard_stdout = sys.stdout
         sys.stdout=log_stream
-
-        # Add a stop button for breaking out of auto-loop
-        self.stop_button = wx.Button(self, wx.ID_ANY, "Stop")
-        self.stop_button.SetBackgroundColour(wx.Colour(255, 40, 40))
-        self.stop_button.SetFont(wx.Font(14, wx.DEFAULT, wx.NORMAL, wx.BOLD, 0, ""))
-        self.Bind(wx.EVT_BUTTON, self.on_stop, self.stop_button)
-        self.stop_loop = False
         
         # Canvas to hold the plots
         self.init_plot()
@@ -90,11 +85,17 @@ class LoopFrame(wx.Frame):
         vbox = wx.BoxSizer(wx.VERTICAL)
         hbox = wx.BoxSizer(wx.HORIZONTAL)
 
-        # Add canvas and log window to sizer. Add stop button is auto-looping
+        # Add canvas and log window to sizer. Add stop button if auto-looping.
         vbox.Add(self.canvas, 1, flag=wx.LEFT | wx.TOP | wx.GROW)
         hbox.Add(log_panel, 5, flag=wx.LEFT | wx.TOP | wx.GROW)
         if AUTO_LOOP:
+            # Add a stop button for breaking out of auto-loop
+            self.stop_button = wx.Button(self, wx.ID_ANY, "Stop")
+            self.stop_button.SetBackgroundColour(wx.Colour(255, 40, 40))
+            self.stop_button.SetFont(wx.Font(14, wx.DEFAULT, wx.NORMAL, wx.BOLD, 0, ""))
+            self.Bind(wx.EVT_BUTTON, self.on_stop, self.stop_button)
             hbox.Add(self.stop_button, 1, flag=wx.LEFT | wx.TOP | wx.GROW)
+        self.stop_loop = False
         vbox.Add(hbox, 0, flag=wx.LEFT | wx.TOP | wx.GROW)
         self.SetSizer(vbox)
         vbox.Fit(self)
@@ -201,9 +202,24 @@ class LoopFrame(wx.Frame):
         except:
             pass
 
+
     def check_proceed(self): 
         if AUTO_LOOP:
-            return 1   
+            i = 0 
+            proceed = 1
+            prog = wx.ProgressDialog("Ready to write to AWG", "Writing in %i seconds" % AUTO_LOOP_WAIT, 
+                        AUTO_LOOP_WAIT, style=wx.PD_AUTO_HIDE|wx.PD_CAN_ABORT, parent=self.parent)
+            while (AUTO_LOOP_WAIT - i >= 0):
+                if (prog.Update(i, "Writing in %i seconds" % (AUTO_LOOP_WAIT-i))[0]) == False:
+                    # User pressed cancel
+                    proceed = 0
+                    prog.Destroy()
+                    break
+                i+=1
+                time.sleep(1)
+            wx.SafeYield(self) # Allow other UI events to process in case user pressed stop button rather than cancel
+            return proceed
+  
         #proceed = wx.MessageDialog(self, "Apply the next correction?", style=wx.YES_NO|wx.YES_DEFAULT)
         proceed = wx.TextEntryDialog(self.parent, "Gain for next iteration?","Apply?")
         proceed.SetValue(str(self.gain))
@@ -219,7 +235,7 @@ class LoopFrame(wx.Frame):
             return 0  
              
 
-    def run_loop(self):    
+    def run_loop(self):   
         iterations = self.iterations
         self.draw_plots()
         wx.SafeYield(self) # Lets the plot update
@@ -235,8 +251,8 @@ class LoopFrame(wx.Frame):
             # Apply correction factor 
             awg_next = self.awg_now * self.correction_factor
 
-            # If target is non-zero but AWG is zero apply offset of AWG_ZERO_SHIFT
-            awg_next[np.logical_and(self.target!=0,self.awg_now==0)]=AWG_ZERO_SHIFT 
+            # If target is non-zero but output is zero apply offset of AWG_ZERO_SHIFT
+            awg_next[np.logical_and(self.target!=0,self.current_output==0)]+=AWG_ZERO_SHIFT 
             
             # If target is zero set AWG to zero directly
             awg_next[self.target==0]=0 
@@ -263,6 +279,11 @@ class LoopFrame(wx.Frame):
                 self.show_error("Quitting loop: proposed curve would exceed peak power", "Quitting loop")
                 break
 
+            # Check if user stopped the loop
+            if self.stop_loop:
+                print(get_message_time()+"Quitting loop: user stop")
+                break
+
             self.apply_correction()
             err = self.update_feedback_curve()
             if err == ERR:
@@ -272,11 +293,6 @@ class LoopFrame(wx.Frame):
 
             # Increase the iteration number and loop again
             self.i+=1
-
-            # Check if user stopped the loop
-            if self.stop_loop:
-                print(get_message_time()+"Quitting loop: user stop")
-                break
 
         # After the loop has finished plot the final data. Use the applied AWG trace from the last iteration
         # rather than re-read the AWG values from hardware. The two shouldn't differ unless there was a problem.
@@ -305,25 +321,24 @@ class LoopFrame(wx.Frame):
     def apply_correction(self):
         if SIMULATION:
             self.current_output = self.awg_next_norm
-            print(get_message_time()+"Correction applied for iteration %d" % self.i)
+            self.awg.sim_write(self.parent)
         else:
             # Write the new AWG trace to the hardware
             self.awg.pause_scanning_PVS() #Stop IDIL/AWG comms while writing curve
             time.sleep(1) #Let the message buffer clear
             if self.i==0:
                 # On the first pass only, set any AWG samples outside the pulse to zero
-                self.awg.apply_curve_point_by_point(self.awg_next_norm, zero_to_end=True)
+                self.awg.write(self.awg_next_norm, parent=self.parent, zero_to_end=True)
             else:
-                self.awg.apply_curve_point_by_point(self.awg_next_norm, zero_to_end=False)
-            #time.sleep(3) #Let the message buffer clear    
+                self.awg.write(self.awg_next_norm, parent=self.parent, zero_to_end=False)
             self.awg.start_scanning_PVS() #Restart the comms now finished writing
+        wx.SafeYield(self)
 
 
     def update_feedback_curve(self):
         if SIMULATION:
             # Don't bother with background correction for simulation mode, so 
-            # just return since self.current_ouput already holds the latest data
-            time.sleep(1)
+            # just return
             return NO_ERR
         
         # Check if scope settings have changed. We could deal with this if they have, but for now
@@ -337,7 +352,8 @@ class LoopFrame(wx.Frame):
         datas=[]
         i=0
         if self.scope_pv.connected:
-            prog = wx.ProgressDialog("Getting scope data", "Reading trace 1", self.scope_averages)
+            prog = wx.ProgressDialog("Getting scope data", "Reading trace 1", self.scope_averages, 
+                                     style=wx.PD_AUTO_HIDE, parent=self.parent)
             while i < self.scope_averages:
                 data = self.scope_pv.get()
                 datas.append(data)
@@ -353,6 +369,7 @@ class LoopFrame(wx.Frame):
         feedback_curve.process('clip','norm',bkg=self.background, 
             crop = cropping , resample = self.num_points)
         self.current_output = feedback_curve.get_processed()
+        wx.SafeYield(self)
         return NO_ERR
 
     
@@ -386,7 +403,7 @@ class LoopFrame(wx.Frame):
         sim_curve.process('clip','norm',bkg=self.background,
                 crop = cropping , resample = self.num_points)
         return sim_curve.get_processed()
-        
+
 
     def show_error(self, msg, cap):
         err = wx.MessageDialog(self, msg, cap,
@@ -402,4 +419,3 @@ class RedirectText(object):
     def write(self,string):
         self.out.WriteText(string)
 
-                
