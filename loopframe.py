@@ -4,13 +4,12 @@ from header import (SCOPE_WAIT_TIME,
                     SIMULATION, 
                     DIAG_FILE_LOCATION, 
                     AWG_ZERO_SHIFT,
-                    NO_ERR,
-                    ERR,
                     AWG_NS_PER_POINT,
                     PULSE_PEAK_POWER,
                     AUTO_LOOP,
                     AUTO_LOOP_WAIT,
-                    get_message_time)
+                    get_message_time,
+                    CODES)
 from awg import Awg
 import matplotlib
 matplotlib.use('WXAgg')
@@ -21,6 +20,7 @@ import epics
 from datetime import datetime
 import matplotlib.pyplot as plt
 from curve import Curve
+from dialogs import LoopControlDialog
 #from scipy.ndimage.filters import gaussian_filter1d
 
 
@@ -220,19 +220,23 @@ class LoopFrame(wx.Frame):
             wx.SafeYield(self) # Allow other UI events to process in case user pressed stop button rather than cancel
             return proceed
   
-        #proceed = wx.MessageDialog(self, "Apply the next correction?", style=wx.YES_NO|wx.YES_DEFAULT)
-        proceed = wx.TextEntryDialog(self.parent, "Gain for next iteration?","Apply?")
-        proceed.SetValue(str(self.gain))
-        #return 1 if proceed.ShowModal()==wx.ID_YES else 0
-        if proceed.ShowModal() == wx.ID_OK:
-            try:
-                gain = float(proceed.GetValue())
-            except:
-                gain = self.gain
-            self.gain = np.clip(gain,0,1)
-            return 1
-        else:
-            return 0  
+        
+        choice = LoopControlDialog(self.parent, title = "Gain for next iteration")
+        choice.SetValue(str(self.gain))
+        proceed = choice.ShowModal()
+        self.gain = float(choice.GetValue())
+        
+        # If replot is chosen, recalculate, refresh graphs and ask again
+        while proceed == CODES.Recalc:
+            self.calculate_parms_for_loop()
+            self.draw_plots()
+            self.draw_awg_plots()
+            wx.SafeYield()
+            proceed = choice.ShowModal()
+            self.gain = float(choice.GetValue())
+        choice.Destroy()
+        return proceed
+            
              
 
     def run_loop(self):   
@@ -241,24 +245,9 @@ class LoopFrame(wx.Frame):
         wx.SafeYield(self) # Lets the plot update
         
         while self.i<iterations and self.rms_error()>=self.tolerance:                      
-                
-            self.awg_now = self.get_awg_now()
-            self.calc_correction_factor()
 
-            # Apply max % change to the correction factor
-            self.correction_factor = np.clip(self.correction_factor, 1.0-self.max_percent_change/100.0, 1.0+self.max_percent_change/100.0)
 
-            # Apply correction factor 
-            awg_next = self.awg_now * self.correction_factor
-
-            # If target is non-zero but output is zero apply offset of AWG_ZERO_SHIFT
-            awg_next[np.logical_and(self.target!=0,self.current_output==0)]+=AWG_ZERO_SHIFT 
-            
-            # If target is zero set AWG to zero directly
-            awg_next[self.target==0]=0 
-
-            # Normalise output
-            self.awg_next_norm = awg_next/np.amax(awg_next)
+            self.calculate_parms_for_loop()
 
             # Draw plots and check if the user wants to continue
             self.draw_plots()
@@ -266,7 +255,7 @@ class LoopFrame(wx.Frame):
             wx.SafeYield(self)
             proceed = self.check_proceed()                
 
-            if not proceed: 
+            if proceed != CODES.Proceed: 
                 print(get_message_time()+"Quitting loop. AWG curve will not be applied")
                 break
             
@@ -286,7 +275,7 @@ class LoopFrame(wx.Frame):
 
             self.apply_correction()
             err = self.update_feedback_curve()
-            if err == ERR:
+            if err == CODES.Error:
                 print(get_message_time()+"Quitting loop: couldn't update feedback curve")
                 self.show_error("Quitting loop: couldn't update feedback curve", "Quitting loop")
                 break
@@ -318,6 +307,26 @@ class LoopFrame(wx.Frame):
         # self.correction_factor = self.correction_factor*(np.logical_not(np.logical_and(self.target!=0,awg_now==0)).astype(int))
 
 
+    def calculate_parms_for_loop(self):    
+        self.awg_now = self.get_awg_now()
+        self.calc_correction_factor()
+
+        # Apply max % change to the correction factor
+        self.correction_factor = np.clip(self.correction_factor, 1.0-self.max_percent_change/100.0, 1.0+self.max_percent_change/100.0)
+
+        # Apply correction factor 
+        awg_next = self.awg_now * self.correction_factor
+
+        # If target is non-zero but output is zero apply offset of AWG_ZERO_SHIFT
+        awg_next[np.logical_and(self.target!=0,self.current_output==0)]+=AWG_ZERO_SHIFT 
+        
+        # If target is zero set AWG to zero directly
+        awg_next[self.target==0]=0 
+
+        # Normalise output
+        self.awg_next_norm = awg_next/np.amax(awg_next)
+
+
     def apply_correction(self):
         if SIMULATION:
             self.current_output = self.awg_next_norm
@@ -339,14 +348,14 @@ class LoopFrame(wx.Frame):
         if SIMULATION:
             # Don't bother with background correction for simulation mode, so 
             # just return
-            return NO_ERR
+            return CODES.NoError
         
         # Check if scope settings have changed. We could deal with this if they have, but for now
         # just warn user and exit
         if self.time_resolution_pv.get() != self.time_res:
             print(get_message_time()+"Scope time resolution has changed since loop started")
             self.show_error("Scope time resolution has changed since loop started", "Scope settings")
-            return ERR
+            return CODES.Error
 
         cropping = (self.slice_start, self.slice_length)      
         datas=[]
@@ -362,7 +371,7 @@ class LoopFrame(wx.Frame):
                 prog.Update(i,"Reading trace %d" % (i))                                   
         else:
             self.show_error("Can't connect to scope PV", "Scope read error")
-            return ERR
+            return CODES.Error
 
         avg = np.average(np.array(datas),axis=0)  
         feedback_curve = Curve(curve_array = avg, name = 'Current')
@@ -370,7 +379,7 @@ class LoopFrame(wx.Frame):
             crop = cropping , resample = self.num_points)
         self.current_output = feedback_curve.get_processed()
         wx.SafeYield(self)
-        return NO_ERR
+        return CODES.NoError
 
     
     def save_files(self):

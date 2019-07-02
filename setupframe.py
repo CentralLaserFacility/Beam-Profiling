@@ -5,10 +5,10 @@ import numpy as np
 import wx, time, os, sys
 from header import (SCOPE_WAIT_TIME, 
                     SIMULATION, 
-                    NO_ERR, 
                     DEFAULT_SCOPE_PV,
                     LIBRARY_FILES_LOCATION, 
-                    AWG_NS_PER_POINT)
+                    AWG_NS_PER_POINT,
+                    CODES)
 
 if sys.version_info[0] < 3:
     import ConfigParser as cp
@@ -239,7 +239,7 @@ class SetupFrame(wx.Frame):
 
         # Reload curves
         bkg_loaded = self.load('bkg')
-        if bkg_loaded != NO_ERR:
+        if bkg_loaded != CODES.NoError:
             self.show_error("Can't load background curve", "File error")
             return
         if self.tgt_src_cb.GetSelection() == 1:
@@ -261,7 +261,7 @@ class SetupFrame(wx.Frame):
                 return
 
         # Run the loop if files whre succefully loaded
-        if bkg_loaded == NO_ERR and target_loaded == NO_ERR :
+        if bkg_loaded == CODES.NoError and target_loaded == CODES.NoError :
             self.run_loop()
         else:
             self.show_error("Couldn't open the background and/or target files", "File open error")

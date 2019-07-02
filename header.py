@@ -3,7 +3,7 @@
 #########################################################################################
 
 from datetime import datetime
-import sys, os, wx
+import sys, os, wx, enum
 
 if sys.version_info[0] < 3:
     import ConfigParser as cp
@@ -22,8 +22,6 @@ AWG_PREFIX = config.get('pvs','awg_prefix')
 DEFAULT_SCOPE_PV = config.get('pvs','scope')
 PAUSE_BETWEEN_AWG_WRITE = config.getfloat('timing','awg_wait')
 LIBRARY_FILES_LOCATION = config.get('file_locations','curve')
-NO_ERR = config.getint('util','no_err')
-ERR = config.getint('util', 'err')
 AWG_ZERO_SHIFT = config.getfloat('awg', 'awg_zero_shift')
 AWG_NS_PER_POINT = config.getfloat('awg', 'awg_ns_per_point')
 AWG_WRITE_METHOD = config.get('awg', 'awg_write_method')
@@ -44,3 +42,11 @@ def epics_setup(epicsCAAddrList, epicsCAAutoAddrList):
 # Provides a date and time string for messages printed to the console
 def get_message_time():
     return datetime.now().strftime("%b_%d_%H:%M.%S")+": "
+
+# Holds utility constants
+class CODES():
+    Proceed = 1 
+    Recalc = 2
+    Abort = 3 
+    Error = 4 
+    NoError = 5
