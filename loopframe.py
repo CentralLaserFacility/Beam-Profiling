@@ -64,7 +64,7 @@ class LoopFrame(wx.Frame):
         if SIMULATION:
             self.current_output = self.simulate_start_data()    
         self.correction_factor = np.zeros(np.alen(self.current_output))
-        if 1: #not SIMULATION:
+        if not SIMULATION:
             self.awg = Awg(AWG_PREFIX, self.num_points , self.max_percent_change)
         
         # Create a panel to hold a log output
