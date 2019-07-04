@@ -10,13 +10,13 @@ class LoopControlDialog(wx.Dialog):
         self.gainTxtCtrl = wx.TextCtrl(self, style=wx.TE_PROCESS_ENTER, value = str(self.gain))
         self.applyButton = wx.Button(self, label = "Apply")
         self.recalcButton = wx.Button(self, label = "Replot")
-        self.abortButton = wx.Button(self, label = "Abort")
+        self.pauseButton = wx.Button(self, label = "Pause")
 
         self.gainTxtCtrl.Bind(wx.EVT_TEXT_ENTER, self.onGainChange)
         self.gainTxtCtrl.Bind(wx.EVT_KILL_FOCUS, self.onGainChange)
         self.applyButton.Bind(wx.EVT_BUTTON, self.onApply)
         self.recalcButton.Bind(wx.EVT_BUTTON, self.onRecalc)
-        self.abortButton.Bind(wx.EVT_BUTTON, self.onAbort)
+        self.pauseButton.Bind(wx.EVT_BUTTON, self.onPause)
         self.Bind(wx.EVT_CLOSE, self.onQuit)
 
         szr = wx.GridBagSizer()
@@ -24,7 +24,7 @@ class LoopControlDialog(wx.Dialog):
         szr.Add(self.gainTxtCtrl, pos = (1,0), span = (1,3), flag = wx.EXPAND|wx.ALL, border = 5)
         szr.Add(self.applyButton, pos = (2,0), span = (1,1), flag = wx.EXPAND|wx.ALL, border = 5)
         szr.Add(self.recalcButton, pos = (2,1), span = (1,1), flag = wx.EXPAND|wx.ALL, border = 5)
-        szr.Add(self.abortButton, pos = (2,2), span = (1,1), flag = wx.EXPAND|wx.ALL, border = 5)
+        szr.Add(self.pauseButton, pos = (2,2), span = (1,1), flag = wx.EXPAND|wx.ALL, border = 5)
         self.SetSizerAndFit(szr)
 
     def onGainChange(self, evt):
@@ -42,8 +42,8 @@ class LoopControlDialog(wx.Dialog):
     def onApply(self, evt):
         self.EndModal(CODES.Proceed)
     
-    def onAbort(self, evt):
-        self.onQuit(evt)
+    def onPause(self, evt):
+        self.EndModal(CODES.Pause)
     
     def onQuit(self, evt):
         self.EndModal(CODES.Abort)

@@ -27,7 +27,7 @@ AWG_NS_PER_POINT = config.getfloat('awg', 'awg_ns_per_point')
 AWG_WRITE_METHOD = config.get('awg', 'awg_write_method')
 PULSE_PEAK_POWER = config.getfloat('safety', 'pulse_peak_power')
 AUTO_LOOP = config.getboolean('safety', 'auto_loop')
-AUTO_LOOP_WAIT = config.getfloat('safety', 'auto_loop_wait')
+AUTO_LOOP_WAIT = config.getfloat('timing', 'auto_loop_wait')
 
 EPICS_CA_ADDR_LIST = config.get('epics', 'epics_ca_addr_list')
 EPICS_CA_AUTO_ADDR_LIST = config.get('epics', 'epics_ca_auto_addr_list')
@@ -47,6 +47,7 @@ def get_message_time():
 class CODES():
     Proceed = 1 
     Recalc = 2
-    Abort = 3 
-    Error = 4 
-    NoError = 5
+    Abort = 3
+    Pause = 4 
+    Error = 5 
+    NoError = 6

@@ -192,7 +192,7 @@ class SetupFrame(wx.Frame):
             reason = 'trace'
             curve = self.cTrace
         err = self.load(reason)
-        if not err:
+        if err == CODES.NoError:
             curve.plot_processed()
         else:
             self.show_error("Couldn't read the curve", "Preview error")
@@ -289,7 +289,7 @@ class SetupFrame(wx.Frame):
             self.cTargetFile.process('clip','norm', resample = num_pts)
         elif reason == 'trace':
             pass
-            err = 0
+            err = CODES.NoError
         return err
 
 
