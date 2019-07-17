@@ -89,7 +89,7 @@ class SetupFrame(wx.Frame):
         self.scope_pv_name = self.scope_pv_text_ctrl.GetValue().strip()
 
         # Find the library curves
-        self.popluate_library_combobox()
+        self.populate_library_combobox()
 
         # Create scope pvs and connect
         self.scope_pv_name = self.scope_pv_text_ctrl.GetValue().strip()
@@ -122,6 +122,7 @@ class SetupFrame(wx.Frame):
             str(int(coerced_length*1e-9/self.time_resolution_pv.get())))
         event.Skip()
     
+
     def coerce_value(self, event):
         obj = event.GetEventObject()        
         if obj.GetName() == 'gain_ctrl':
@@ -130,6 +131,7 @@ class SetupFrame(wx.Frame):
         val = np.clip(float(obj.GetValue()),min,max)
         obj.SetValue(str(val))
         event.Skip()
+
 
     @EpicsFunction
     def on_scope_pv(self,event): 
@@ -343,6 +345,7 @@ class SetupFrame(wx.Frame):
         with open(filename, 'w') as configfile:
             config.write(configfile)
 
+
     def load_state(self, filename = './state.txt'):
         config = cp.RawConfigParser()
         config.read(filename)
@@ -363,13 +366,15 @@ class SetupFrame(wx.Frame):
             self.library_combo_box.SetSelection(config.getint('Traces', 'lib_index'))
         except:
             pass
-       
+
+
     def show_error(self, msg, cap):
         err = wx.MessageDialog(self, msg, cap,
             style=wx.ICON_ERROR)
         err.ShowModal()
 
-    def popluate_library_combobox(self):
+
+    def populate_library_combobox(self):
         try:
             files = os.listdir(LIBRARY_FILES_LOCATION)
             for f in files:
@@ -378,7 +383,8 @@ class SetupFrame(wx.Frame):
                     self.library_combo_box.Append(pieces[0])
         except:
             pass
-    
+
+
     def __set_properties(self):
         _title = "Beam profiling simulation" if SIMULATION == True else "Beam Profiling"
         self.SetTitle(_title)
@@ -410,6 +416,7 @@ class SetupFrame(wx.Frame):
         self.library_preview_button.SetName('lby_prv')
         self.trace_preview_button.SetName('trace_prv')
         self.gain_txt_ctrl.SetName('gain_ctrl')
+
 
     def __do_layout(self):
         main_sizer = wx.BoxSizer(wx.VERTICAL)
