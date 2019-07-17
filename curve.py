@@ -248,7 +248,7 @@ class Curve:
     # Needs rewrite to average over blocks of 5 points at a time
     def _resample(self, data, npoints):
         im = np.arange(0,len(data))
-        ip = np.linspace(0,len(data),npoints)
+        ip = np.linspace(0,len(data)-1,npoints)
         p = np.interp(ip, im, data)
         return p
 
