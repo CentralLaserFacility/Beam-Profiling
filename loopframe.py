@@ -8,6 +8,7 @@ from header import (SCOPE_WAIT_TIME,
                     PULSE_PEAK_POWER,
                     AUTO_LOOP,
                     AUTO_LOOP_WAIT,
+                    NOISE_THRESHOLD_PERCENTAGE,
                     get_message_time,
                     CODES)
 from awg import Awg
@@ -22,8 +23,12 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 from curve import Curve
 from dialogs import LoopControlDialog
-from scipy.ndimage.filters import gaussian_filter1d
-
+#from scipy.ndimage.filters import gaussian_filter1d
+try: 
+    from user_filter import user_filter
+except:
+    def user_filter(data):
+        return data
 
 class LoopFrame(wx.Frame):
     ''' Class to run the loop. It launches a new window'''
@@ -44,7 +49,7 @@ class LoopFrame(wx.Frame):
         # Set up the parameters for the AWG and the looping
         self.target = target.get_processed()
         self.target=self.target/np.max(self.target) #Normalise
-        self.target=gaussian_filter1d(self.target, sigma=1, order=0) #filter to smooth edges
+        #self.target=gaussian_filter1d(self.target, sigma=1, order=0) #filter to smooth edges
         self.background = background
         self.pulse_length = pulse_length
         self.slice_start = start
@@ -361,14 +366,20 @@ class LoopFrame(wx.Frame):
         # Apply correction factor 
         awg_next = self.awg_now * self.correction_factor
 
-        # If target is non-zero but output is zero apply offset of AWG_ZERO_SHIFT
-        awg_next[np.logical_and(self.target!=0,self.current_output==0)]+=AWG_ZERO_SHIFT 
+        # If target is non-zero and output is just noise apply offset of AWG_ZERO_SHIFT
+        threshold = NOISE_THRESHOLD_PERCENTAGE/100.0
+        awg_next[np.logical_and(self.target!=0,self.current_output<=threshold)]+=AWG_ZERO_SHIFT 
         
         # If target is zero set AWG to zero directly
         awg_next[self.target==0]=0 
 
         # Normalise output
-        self.awg_next_norm = awg_next/np.amax(awg_next)
+        awg_next_norm = awg_next/np.amax(awg_next)
+        try: 
+            self.awg_next_norm = user_filter(awg_next_norm)
+        except:
+            self.show_error("Error when applying user-defined filter\n Ignoring filter", "Filter error")
+            self.awg_next_norm = awg_next_norm
 
 
     def apply_correction(self):
@@ -449,8 +460,8 @@ class LoopFrame(wx.Frame):
 
     def simulate_start_data(self):
         temp=0.5*np.ones(np.size(self.background.get_raw()))
-        temp[250:350]=0
-        temp[400:500]=0
+        temp[250:350]=0.01
+        temp[400:500]=0.03
         cropping = (self.slice_start, self.slice_length)
         
         sim_curve = Curve(curve_array = temp)
