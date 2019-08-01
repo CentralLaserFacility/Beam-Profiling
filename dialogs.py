@@ -28,15 +28,20 @@ class LoopControlDialog(wx.Dialog):
         self.SetSizerAndFit(szr)
 
     def onGainChange(self, evt):
+        current_gain = self.gain
         try:
             gain = float(self.gainTxtCtrl.GetValue())
         except:
             gain = self.gain
         self.gain = max(0, min(gain,1))
         self.gainTxtCtrl.SetValue(str(self.gain))
+        if self.gain != current_gain:
+            #self.applyButton.Disable()
+            self.EndModal(CODES.Recalc)
         evt.Skip()
 
     def onRecalc(self, evt):
+        #self.applyButton.Enable()
         self.EndModal(CODES.Recalc)
     
     def onApply(self, evt):
