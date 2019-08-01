@@ -151,7 +151,7 @@ class  Awg(object):
                     epics.caput(self.prefix + ":_SetSample" + str(i) + "_do",0)
                     time.sleep(PAUSE_BETWEEN_AWG_WRITE)
                 i+=1
-        #prog.Destroy()
+        prog.Destroy()
 
 
     def sim_write(self, parent=None):
