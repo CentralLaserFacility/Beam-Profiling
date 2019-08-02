@@ -374,12 +374,11 @@ class LoopFrame(wx.Frame):
         awg_next[self.target==0]=0 
 
         # Normalise output
-        awg_next_norm = awg_next/np.amax(awg_next)
         try: 
-            self.awg_next_norm = user_filter(awg_next_norm)
+            awg_next = user_filter(awg_next)
         except:
             self.show_error("Error when applying user-defined filter\n Ignoring filter", "Filter error")
-            self.awg_next_norm = awg_next_norm
+        self.awg_next_norm = awg_next/np.amax(awg_next)
 
 
     def apply_correction(self):
