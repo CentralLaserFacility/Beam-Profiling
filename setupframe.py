@@ -149,7 +149,7 @@ class SetupFrame(wx.Frame):
             gain = 0.5
         obj.SetValue(str(gain))
         event.Skip()
-        
+
 
     def coerce_iterations(self, event):
         minimum=1    
@@ -355,31 +355,32 @@ class SetupFrame(wx.Frame):
 
 
     def run_loop(self):
-        if AUTO_LOOP:
-            try:
+        try:
+            if AUTO_LOOP:
                 iterations = int(self.iterations_txt_ctrl.GetValue())
                 tolerance = float(self.tolerance_txt_ctrl.GetValue())
-            except:
-                self.show_error("Check value of iterations and tolerance", "Value error")
-                return
-        else:
-            # Dummy values - these are ignored when not autolooping
-            iterations = 200
-            tolerance = 0
-        max_percent_change = int(self.max_change_txt_ctrl.GetValue())
-        gain = float(self.gain_txt_ctrl.GetValue()) 
-        pulse_length = float(self.plength_text_ctrl.GetValue())
-        start = int(self.scope_start_text_ctrl.GetValue())
-        if not SIMULATION:
-            length = int(int(pulse_length*1e-9/self.time_resolution_pv.get()))
-        else:
-            length = int(self.scope_length_text_control.GetValue())
+            else:
+                # Dummy values - these are ignored when not autolooping
+                iterations = 200
+                tolerance = 0
+            max_percent_change = int(self.max_change_txt_ctrl.GetValue())
+            gain = float(self.gain_txt_ctrl.GetValue()) 
+            pulse_length = float(self.plength_text_ctrl.GetValue())
+            start = int(self.scope_start_text_ctrl.GetValue())
+            averages = int(self.trc_avg.GetValue())
+            if not SIMULATION:
+                length = int(int(pulse_length*1e-9/self.time_resolution_pv.get()))
+            else:
+                length = int(self.scope_length_text_control.GetValue())
+        except:
+            self.show_error("Check parameters are all valid numbers", "Value error")
+            return
+        
         scope_pv = self.scope_pv
         time_res_pv = self.time_resolution_pv
         target = self.cTargetFile
         background = self.cBackground
         save_diag_files = True if self.diag_files_radio_box.GetSelection() == 0 else False
-        averages = int(self.trc_avg.GetValue())
         
         self.loop = LoopFrame(self, target, background, pulse_length, start, length, scope_pv, time_res_pv,
                                 averages, gain, iterations, tolerance, max_percent_change, save_diag_files)
