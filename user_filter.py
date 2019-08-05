@@ -18,4 +18,7 @@ def gaussian_filter(data):
 def median_filter(data):
     return medfilt(data, 11)
 
+def no_filter(data):
+    return data
+
 user_filter = gaussian_filter
