@@ -99,16 +99,15 @@ class SetupFrame(wx.Frame):
 
         # Create scope pvs and connect
         self.scope_pv_name = self.scope_pv_text_ctrl.GetValue().strip()
-        self.time_resolution_pv_name = self.scope_pv_name.split(':')[0] + ":SetResolution"
         self.time_resolution_pv = epics.PV(self.time_resolution_pv_name)
         self.scope_pv = epics.PV(self.scope_pv_name, connection_callback=self.on_pv_connect)
         if self.scope_pv.connected:
             self.scope_pv_text_ctrl.SetBackgroundColour('#0aff05')
         else:
             self.scope_pv_text_ctrl.SetBackgroundColour('#cc99ff')
-
         # Load old parameters
         self.load_state()
+        self.time_resolution_pv_name = self.scope_pv_name.split(':')[0] + ":SetResolution"
 
         # When not autolooping, max iterations and tolerance aren't used
         if not AUTO_LOOP:
@@ -202,6 +201,7 @@ class SetupFrame(wx.Frame):
             self.scope_pv_text_ctrl.SetBackgroundColour('#0aff05')
         else:
             self.scope_pv_text_ctrl.SetBackgroundColour('#cc99ff')
+        self.time_resolution_pv_name = self.scope_pv_name.split(':')[0] + ":SetResolution"
         self.scope_pv_text_ctrl.Refresh()
         event.Skip()
 
