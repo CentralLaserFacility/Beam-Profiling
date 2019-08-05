@@ -3,7 +3,7 @@
 #########################################################################################
 
 from datetime import datetime
-import sys, os, wx, enum
+import sys, os, wx, epics
 
 if sys.version_info[0] < 3:
     import ConfigParser as cp
@@ -38,6 +38,12 @@ EPICS_CA_AUTO_ADDR_LIST = config.get('epics', 'epics_ca_auto_addr_list')
 def epics_setup(epicsCAAddrList, epicsCAAutoAddrList):
     os.environ["EPICS_CA_ADDR_LIST"] = epicsCAAddrList
     os.environ["EPICS_CA_AUTO_ADDR_LIST"] = epicsCAAutoAddrList
+
+    # Add caRepeater to the path. The epics module does the hard work of finding
+    # ca.dll and caRepeater is in the same dir
+    ca_dir = epics.ca._find_lib('ca.dll')[:-6]
+    if ca_dir not in(sys.path):
+        sys.path.append(ca_dir)
     
 
 # Provides a date and time string for messages printed to the console
