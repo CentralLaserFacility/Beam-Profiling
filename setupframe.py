@@ -8,6 +8,7 @@ from header import (SCOPE_WAIT_TIME,
                     DEFAULT_SCOPE_PV,
                     LIBRARY_FILES_LOCATION, 
                     AWG_NS_PER_POINT,
+                    AUTO_LOOP,
                     CODES)
 
 if sys.version_info[0] < 3:
@@ -80,7 +81,12 @@ class SetupFrame(wx.Frame):
         self.Bind(wx.EVT_CLOSE, self.closeWindow)
         self.Bind(wx.EVT_TEXT_ENTER, self.on_scope_pv, self.scope_pv_text_ctrl)
         self.plength_text_ctrl.Bind(wx.EVT_KILL_FOCUS, self.coerce_pulse_length)
-        self.gain_txt_ctrl.Bind(wx.EVT_KILL_FOCUS, self.coerce_value)
+        self.gain_txt_ctrl.Bind(wx.EVT_KILL_FOCUS, self.coerce_gain)
+        self.tolerance_txt_ctrl.Bind(wx.EVT_KILL_FOCUS, self.coerce_tolerance)
+        self.max_change_txt_ctrl.Bind(wx.EVT_KILL_FOCUS, self.coerce_max_percentage_change)
+        self.iterations_txt_ctrl.Bind(wx.EVT_KILL_FOCUS, self.coerce_iterations)
+        
+
 
         # Instantiate Curve objects to hold data
         self.cBackground = BkgCurve(name = 'Background')
@@ -103,6 +109,14 @@ class SetupFrame(wx.Frame):
 
         # Load old parameters
         self.load_state()
+
+        # When not autolooping, max iterations and tolerance aren't used
+        if not AUTO_LOOP:
+            self.iterations_txt_ctrl.Disable()
+            self.iterations_txt_ctrl.SetValue('N/A')
+            self.tolerance_txt_ctrl.Disable()
+            self.tolerance_txt_ctrl.SetValue('N/A')
+
         
 
 #####################################################################################
@@ -123,13 +137,58 @@ class SetupFrame(wx.Frame):
         event.Skip()
     
 
-    def coerce_value(self, event):
-        obj = event.GetEventObject()        
-        if obj.GetName() == 'gain_ctrl':
-            min=0.05
-            max=1        
-        val = np.clip(float(obj.GetValue()),min,max)
-        obj.SetValue(str(val))
+    def coerce_gain(self, event):
+        minimum=0.05
+        maximum=1     
+        obj = event.GetEventObject()
+        try:   
+            gain = np.clip(float(obj.GetValue()),minimum,maximum)
+        except:
+            self.show_error("Gain must be number between {0:.2f} and {1:.2f}".format(minimum, maximum),
+                            "Value error")
+            gain = 0.5
+        obj.SetValue(str(gain))
+        event.Skip()
+        
+
+    def coerce_iterations(self, event):
+        minimum=1    
+        obj = event.GetEventObject()
+        try:   
+            # Read as float and convert to int to allow scientific notation
+            iterations =  int(max(minimum,float(obj.GetValue())))
+        except:
+            self.show_error("Iterations must be number >= {0:d}".format(minimum),
+                            "Value error")
+            iterations = minimum            
+        obj.SetValue(str(iterations))
+        event.Skip()
+
+
+    def coerce_tolerance(self, event):
+        minimum=0.01    
+        obj = event.GetEventObject()
+        try:   
+            tolerance =  float(max(minimum,float(obj.GetValue())))
+        except:
+            self.show_error("Tolerance must be number >= {0:.2f}".format(minimum),
+                            "Value error")
+            tolerance = minimum            
+        obj.SetValue(str(tolerance))
+        event.Skip()
+
+
+    def coerce_max_percentage_change(self, event):
+        minimum=1
+        maximum=100     
+        obj = event.GetEventObject()
+        try:   
+            change = np.clip(int(obj.GetValue()),minimum,maximum)
+        except:
+            self.show_error("Max percentage change must be number between {0:d} and {1:d}".format(minimum, maximum),
+                            "Value error")
+            change = 25
+        obj.SetValue(str(change))
         event.Skip()
 
 
@@ -296,8 +355,17 @@ class SetupFrame(wx.Frame):
 
 
     def run_loop(self):
-        iterations = int(self.iterations_txt_ctrl.GetValue())
-        tolerance = float(self.tolerance_txt_ctrl.GetValue())
+        if AUTO_LOOP:
+            try:
+                iterations = int(self.iterations_txt_ctrl.GetValue())
+                tolerance = float(self.tolerance_txt_ctrl.GetValue())
+            except:
+                self.show_error("Check value of iterations and tolerance", "Value error")
+                return
+        else:
+            # Dummy values - these are ignored when not autolooping
+            iterations = 200
+            tolerance = 0
         max_percent_change = int(self.max_change_txt_ctrl.GetValue())
         gain = float(self.gain_txt_ctrl.GetValue()) 
         pulse_length = float(self.plength_text_ctrl.GetValue())
@@ -306,7 +374,6 @@ class SetupFrame(wx.Frame):
             length = int(int(pulse_length*1e-9/self.time_resolution_pv.get()))
         else:
             length = int(self.scope_length_text_control.GetValue())
-        #length = int(self.scope_length_text_control.GetValue())
         scope_pv = self.scope_pv
         time_res_pv = self.time_resolution_pv
         target = self.cTargetFile
