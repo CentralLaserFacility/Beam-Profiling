@@ -276,8 +276,11 @@ class LoopFrame(wx.Frame):
     def run_loop(self):   
         self.draw_plots()
         wx.SafeYield(self) # Lets the plot update
+        proceed = -1
         
-        while self.i<self.iterations and self.rms_error()>=self.tolerance:                      
+        # If AUTO_LOOP is off, loop continuously until user quits, else loop until 
+        # max iterations or RMS value reached
+        while (not AUTO_LOOP) or (self.i<self.iterations and self.rms_error()>=self.tolerance):                      
 
             self.calculate_parms_for_loop()
 
