@@ -1,6 +1,7 @@
 import numpy as np
 import wx, six
 import matplotlib.pyplot as plt
+from header import CODES
 
 
 
@@ -69,7 +70,7 @@ class Curve:
                 self._name = "manual"
             else: 
                 self._name = name
-            return 0
+            return CODES.NoError
 
         elif isinstance(data,str):
             pathname = data
@@ -116,11 +117,11 @@ class Curve:
             else: 
                 self._name = name
             
-            return 0
+            return CODES.NoError
 
         except:
             #print("Can't open the file")
-            return -1
+            return CODES.Error
     
     def save(self, raw = False, pathname = None):
         """
@@ -247,7 +248,7 @@ class Curve:
     # Needs rewrite to average over blocks of 5 points at a time
     def _resample(self, data, npoints):
         im = np.arange(0,len(data))
-        ip = np.linspace(0,len(data),npoints)
+        ip = np.linspace(0,len(data)-1,npoints)
         p = np.interp(ip, im, data)
         return p
 

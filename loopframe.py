@@ -4,25 +4,31 @@ from header import (SCOPE_WAIT_TIME,
                     SIMULATION, 
                     DIAG_FILE_LOCATION, 
                     AWG_ZERO_SHIFT,
-                    NO_ERR,
-                    ERR,
                     AWG_NS_PER_POINT,
                     PULSE_PEAK_POWER,
                     AUTO_LOOP,
                     AUTO_LOOP_WAIT,
-                    get_message_time)
+                    NOISE_THRESHOLD_PERCENTAGE,
+                    get_message_time,
+                    CODES)
 from awg import Awg
 import matplotlib
 matplotlib.use('WXAgg')
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigCanvas
+from matplotlib.backends.backend_wx import NavigationToolbar2Wx as NavigationToolbar
 import time, math, pylab, wx, sys
 import numpy as np
 import epics
 from datetime import datetime
 import matplotlib.pyplot as plt
 from curve import Curve
+from dialogs import LoopControlDialog
 #from scipy.ndimage.filters import gaussian_filter1d
-
+try: 
+    from user_filter import user_filter
+except:
+    def user_filter(data):
+        return data
 
 class LoopFrame(wx.Frame):
     ''' Class to run the loop. It launches a new window'''
@@ -43,7 +49,7 @@ class LoopFrame(wx.Frame):
         # Set up the parameters for the AWG and the looping
         self.target = target.get_processed()
         self.target=self.target/np.max(self.target) #Normalise
-        #self.target=gaussian_filter1d(target_curve.get_processed(), sigma=1, order=0) #filter to smooth edges
+        #self.target=gaussian_filter1d(self.target, sigma=1, order=0) #filter to smooth edges
         self.background = background
         self.pulse_length = pulse_length
         self.slice_start = start
@@ -63,8 +69,7 @@ class LoopFrame(wx.Frame):
         if SIMULATION:
             self.current_output = self.simulate_start_data()    
         self.correction_factor = np.zeros(np.alen(self.current_output))
-        if 1: #not SIMULATION:
-            self.awg = Awg(AWG_PREFIX, self.num_points , self.max_percent_change)
+        self.awg = Awg(AWG_PREFIX, self.num_points , self.max_percent_change)
         
         # Create a panel to hold a log output
         log_panel = wx.Panel(self, wx.ID_ANY)
@@ -80,31 +85,60 @@ class LoopFrame(wx.Frame):
         sys.stdout=log_stream
         
         # Canvas to hold the plots
+        self.vbox = wx.BoxSizer(wx.VERTICAL)
+        self.hbox = wx.BoxSizer(wx.HORIZONTAL)
         self.init_plot()
         self.canvas = FigCanvas(self, -1, self.fig)
-        vbox = wx.BoxSizer(wx.VERTICAL)
-        hbox = wx.BoxSizer(wx.HORIZONTAL)
+        self.add_toolbar() 
 
         # Add canvas and log window to sizer. Add stop button if auto-looping.
-        vbox.Add(self.canvas, 1, flag=wx.LEFT | wx.TOP | wx.GROW)
-        hbox.Add(log_panel, 5, flag=wx.LEFT | wx.TOP | wx.GROW)
+        self.vbox.Add(self.canvas, 1, flag=wx.LEFT | wx.TOP | wx.GROW)
+        self.hbox.Add(log_panel, 5, flag=wx.LEFT | wx.TOP | wx.GROW)
         if AUTO_LOOP:
             # Add a stop button for breaking out of auto-loop
-            self.stop_button = wx.Button(self, wx.ID_ANY, "Stop")
-            self.stop_button.SetBackgroundColour(wx.Colour(255, 40, 40))
-            self.stop_button.SetFont(wx.Font(14, wx.DEFAULT, wx.NORMAL, wx.BOLD, 0, ""))
-            self.Bind(wx.EVT_BUTTON, self.on_stop, self.stop_button)
-            hbox.Add(self.stop_button, 1, flag=wx.LEFT | wx.TOP | wx.GROW)
+            self.add_stop_button()
+        else:
+            # Used to restart a paused loop
+            self.add_continue_button()
         self.stop_loop = False
-        vbox.Add(hbox, 0, flag=wx.LEFT | wx.TOP | wx.GROW)
-        self.SetSizer(vbox)
-        vbox.Fit(self)
+        self.vbox.Add(self.hbox, 0, flag=wx.LEFT | wx.TOP | wx.GROW)
+        self.SetSizer(self.vbox)
+        self.vbox.Fit(self)
                 
         # Draw the window and display
         self.draw_plots()
         self.parent.Disable() # Stop the user launching another loop window until this one is closed
+        self.parent.SetTransparent(120) 
         self.Show()
         self.run_loop()
+
+
+    def add_stop_button(self):
+        self.stop_button = wx.Button(self, wx.ID_ANY, "Stop")
+        self.stop_button.SetBackgroundColour(wx.Colour(255, 40, 40))
+        self.stop_button.SetFont(wx.Font(14, wx.DEFAULT, wx.NORMAL, wx.BOLD, 0, ""))
+        self.Bind(wx.EVT_BUTTON, self.on_stop, self.stop_button)
+        self.hbox.Add(self.stop_button, 1, flag=wx.LEFT | wx.TOP | wx.GROW)
+
+
+    def add_continue_button(self):
+        self.continue_button = wx.Button(self, wx.ID_ANY, "Continue")
+        self.continue_button.SetBackgroundColour(wx.Colour(220, 220, 220))
+        self.continue_button.SetFont(wx.Font(14, wx.DEFAULT, wx.NORMAL, wx.BOLD, 0, ""))
+        self.Bind(wx.EVT_BUTTON, self.on_continue, self.continue_button)
+        self.hbox.Add(self.continue_button, 1, flag=wx.LEFT | wx.TOP | wx.GROW)
+
+
+    def add_toolbar(self):
+        self.toolbar = NavigationToolbar(self.canvas)
+        self.toolbar.Realize()
+        self.vbox.Add(self.toolbar, 0, wx.LEFT | wx.EXPAND)
+        self.toolbar.update()
+
+     
+    def on_continue(self, event):
+        if self.i<self.iterations and self.rms_error()>=self.tolerance:
+            self.run_loop()
 
 
     def on_stop(self, event):
@@ -116,6 +150,7 @@ class LoopFrame(wx.Frame):
         self.stop_loop = True
         sys.stdout = self.standard_stdout
         self.parent.Enable()
+        self.parent.SetTransparent(255)
         self.Destroy()
 
 
@@ -206,13 +241,13 @@ class LoopFrame(wx.Frame):
     def check_proceed(self): 
         if AUTO_LOOP:
             i = 0 
-            proceed = 1
+            proceed = CODES.Proceed
             prog = wx.ProgressDialog("Ready to write to AWG", "Writing in %i seconds" % AUTO_LOOP_WAIT, 
                         AUTO_LOOP_WAIT, style=wx.PD_AUTO_HIDE|wx.PD_CAN_ABORT, parent=self.parent)
             while (AUTO_LOOP_WAIT - i >= 0):
                 if (prog.Update(i, "Writing in %i seconds" % (AUTO_LOOP_WAIT-i))[0]) == False:
                     # User pressed cancel
-                    proceed = 0
+                    proceed = CODES.Abort
                     prog.Destroy()
                     break
                 i+=1
@@ -220,45 +255,34 @@ class LoopFrame(wx.Frame):
             wx.SafeYield(self) # Allow other UI events to process in case user pressed stop button rather than cancel
             return proceed
   
-        #proceed = wx.MessageDialog(self, "Apply the next correction?", style=wx.YES_NO|wx.YES_DEFAULT)
-        proceed = wx.TextEntryDialog(self.parent, "Gain for next iteration?","Apply?")
-        proceed.SetValue(str(self.gain))
-        #return 1 if proceed.ShowModal()==wx.ID_YES else 0
-        if proceed.ShowModal() == wx.ID_OK:
-            try:
-                gain = float(proceed.GetValue())
-            except:
-                gain = self.gain
-            self.gain = np.clip(gain,0,1)
-            return 1
-        else:
-            return 0  
+        
+        choice = LoopControlDialog(self.parent, title = "Gain for next iteration")
+        choice.SetValue(str(self.gain))
+        proceed = choice.ShowModal()
+        self.gain = float(choice.GetValue())
+        
+        # If replot is chosen, recalculate, refresh graphs and ask again
+        while proceed == CODES.Recalc:
+            self.calculate_parms_for_loop()
+            self.draw_plots()
+            self.draw_awg_plots()
+            wx.SafeYield()
+            proceed = choice.ShowModal()
+            self.gain = float(choice.GetValue())
+        choice.Destroy()
+        return proceed
+            
              
-
     def run_loop(self):   
-        iterations = self.iterations
         self.draw_plots()
         wx.SafeYield(self) # Lets the plot update
+        proceed = -1
         
-        while self.i<iterations and self.rms_error()>=self.tolerance:                      
-                
-            self.awg_now = self.get_awg_now()
-            self.calc_correction_factor()
+        # If AUTO_LOOP is off, loop continuously until user quits, else loop until 
+        # max iterations or RMS value reached
+        while (not AUTO_LOOP) or (self.i<self.iterations and self.rms_error()>=self.tolerance):                      
 
-            # Apply max % change to the correction factor
-            self.correction_factor = np.clip(self.correction_factor, 1.0-self.max_percent_change/100.0, 1.0+self.max_percent_change/100.0)
-
-            # Apply correction factor 
-            awg_next = self.awg_now * self.correction_factor
-
-            # If target is non-zero but output is zero apply offset of AWG_ZERO_SHIFT
-            awg_next[np.logical_and(self.target!=0,self.current_output==0)]+=AWG_ZERO_SHIFT 
-            
-            # If target is zero set AWG to zero directly
-            awg_next[self.target==0]=0 
-
-            # Normalise output
-            self.awg_next_norm = awg_next/np.amax(awg_next)
+            self.calculate_parms_for_loop()
 
             # Draw plots and check if the user wants to continue
             self.draw_plots()
@@ -266,8 +290,13 @@ class LoopFrame(wx.Frame):
             wx.SafeYield(self)
             proceed = self.check_proceed()                
 
-            if not proceed: 
+            if proceed == CODES.Abort: 
                 print(get_message_time()+"Quitting loop. AWG curve will not be applied")
+                break
+            elif proceed == CODES.Pause:
+                print(get_message_time()+"Loop paused") 
+                break
+            elif proceed == CODES.Recalc:
                 break
             
             if self.save_diag_files:
@@ -286,7 +315,7 @@ class LoopFrame(wx.Frame):
 
             self.apply_correction()
             err = self.update_feedback_curve()
-            if err == ERR:
+            if err == CODES.Error:
                 print(get_message_time()+"Quitting loop: couldn't update feedback curve")
                 self.show_error("Quitting loop: couldn't update feedback curve", "Quitting loop")
                 break
@@ -298,8 +327,20 @@ class LoopFrame(wx.Frame):
         # rather than re-read the AWG values from hardware. The two shouldn't differ unless there was a problem.
         self.draw_plots()
         wx.SafeYield(self) # Needed to allow processing events to stop loop and let plot update
-        print(get_message_time()+"Loop ended")
-    
+        self.loop_end_message(proceed)
+
+
+    def loop_end_message(self, proceed):
+        if proceed == CODES.Abort:
+            msg = "Quitting loop: user stop"
+        elif proceed == CODES.Recalc:
+            return
+        elif proceed == CODES.Pause:
+            msg = "Loop paused"
+        else:
+            msg = "Loop ended"
+        print(get_message_time()+msg) 
+
 
     def calc_correction_factor(self):
         # Errors if AWG==0 and target!=0, but we handle that later so ignore them
@@ -318,10 +359,36 @@ class LoopFrame(wx.Frame):
         # self.correction_factor = self.correction_factor*(np.logical_not(np.logical_and(self.target!=0,awg_now==0)).astype(int))
 
 
+    def calculate_parms_for_loop(self):    
+        self.awg_now = self.get_awg_now()
+        self.calc_correction_factor()
+
+        # Apply max % change to the correction factor
+        self.correction_factor = np.clip(self.correction_factor, 1.0-self.max_percent_change/100.0, 1.0+self.max_percent_change/100.0)
+
+        # Apply correction factor 
+        awg_next = self.awg_now * self.correction_factor
+
+        # If target is non-zero and output is just noise apply offset of AWG_ZERO_SHIFT
+        threshold = NOISE_THRESHOLD_PERCENTAGE/100.0
+        awg_next[np.logical_and(self.target!=0,self.current_output<=threshold)]+=AWG_ZERO_SHIFT 
+        
+        # If target is zero set AWG to zero directly
+        awg_next[self.target==0]=0 
+
+        # Normalise output
+        try: 
+            awg_next = user_filter(awg_next)
+        except:
+            self.show_error("Error when applying user-defined filter\n Ignoring filter", "Filter error")
+        self.awg_next_norm = awg_next/np.amax(awg_next)
+
+
     def apply_correction(self):
         if SIMULATION:
             self.current_output = self.awg_next_norm
             self.awg.sim_write(self.parent)
+            print(get_message_time()+"Applied correction for interation %i" % (self.i+1))
         else:
             # Write the new AWG trace to the hardware
             self.awg.pause_scanning_PVS() #Stop IDIL/AWG comms while writing curve
@@ -339,14 +406,14 @@ class LoopFrame(wx.Frame):
         if SIMULATION:
             # Don't bother with background correction for simulation mode, so 
             # just return
-            return NO_ERR
+            return CODES.NoError
         
         # Check if scope settings have changed. We could deal with this if they have, but for now
         # just warn user and exit
         if self.time_resolution_pv.get() != self.time_res:
             print(get_message_time()+"Scope time resolution has changed since loop started")
             self.show_error("Scope time resolution has changed since loop started", "Scope settings")
-            return ERR
+            return CODES.Error
 
         cropping = (self.slice_start, self.slice_length)      
         datas=[]
@@ -362,7 +429,7 @@ class LoopFrame(wx.Frame):
                 prog.Update(i,"Reading trace %d" % (i))                                   
         else:
             self.show_error("Can't connect to scope PV", "Scope read error")
-            return ERR
+            return CODES.Error
 
         avg = np.average(np.array(datas),axis=0)  
         feedback_curve = Curve(curve_array = avg, name = 'Current')
@@ -370,7 +437,7 @@ class LoopFrame(wx.Frame):
             crop = cropping , resample = self.num_points)
         self.current_output = feedback_curve.get_processed()
         wx.SafeYield(self)
-        return NO_ERR
+        return CODES.NoError
 
     
     def save_files(self):
@@ -395,8 +462,8 @@ class LoopFrame(wx.Frame):
 
     def simulate_start_data(self):
         temp=0.5*np.ones(np.size(self.background.get_raw()))
-        temp[250:350]=0
-        temp[400:500]=0
+        temp[250:350]=0.01
+        temp[400:500]=0.03
         cropping = (self.slice_start, self.slice_length)
         
         sim_curve = Curve(curve_array = temp)

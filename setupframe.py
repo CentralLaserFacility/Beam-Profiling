@@ -5,10 +5,11 @@ import numpy as np
 import wx, time, os, sys
 from header import (SCOPE_WAIT_TIME, 
                     SIMULATION, 
-                    NO_ERR, 
                     DEFAULT_SCOPE_PV,
                     LIBRARY_FILES_LOCATION, 
-                    AWG_NS_PER_POINT)
+                    AWG_NS_PER_POINT,
+                    AUTO_LOOP,
+                    CODES)
 
 if sys.version_info[0] < 3:
     import ConfigParser as cp
@@ -80,7 +81,12 @@ class SetupFrame(wx.Frame):
         self.Bind(wx.EVT_CLOSE, self.closeWindow)
         self.Bind(wx.EVT_TEXT_ENTER, self.on_scope_pv, self.scope_pv_text_ctrl)
         self.plength_text_ctrl.Bind(wx.EVT_KILL_FOCUS, self.coerce_pulse_length)
-        self.gain_txt_ctrl.Bind(wx.EVT_KILL_FOCUS, self.coerce_value)
+        self.gain_txt_ctrl.Bind(wx.EVT_KILL_FOCUS, self.coerce_gain)
+        self.tolerance_txt_ctrl.Bind(wx.EVT_KILL_FOCUS, self.coerce_tolerance)
+        self.max_change_txt_ctrl.Bind(wx.EVT_KILL_FOCUS, self.coerce_max_percentage_change)
+        self.iterations_txt_ctrl.Bind(wx.EVT_KILL_FOCUS, self.coerce_iterations)
+        
+
 
         # Instantiate Curve objects to hold data
         self.cBackground = BkgCurve(name = 'Background')
@@ -89,20 +95,27 @@ class SetupFrame(wx.Frame):
         self.scope_pv_name = self.scope_pv_text_ctrl.GetValue().strip()
 
         # Find the library curves
-        self.popluate_library_combobox()
+        self.populate_library_combobox()
 
         # Create scope pvs and connect
         self.scope_pv_name = self.scope_pv_text_ctrl.GetValue().strip()
-        self.time_resolution_pv_name = self.scope_pv_name.split(':')[0] + ":SetResolution"
         self.time_resolution_pv = epics.PV(self.time_resolution_pv_name)
         self.scope_pv = epics.PV(self.scope_pv_name, connection_callback=self.on_pv_connect)
         if self.scope_pv.connected:
             self.scope_pv_text_ctrl.SetBackgroundColour('#0aff05')
         else:
             self.scope_pv_text_ctrl.SetBackgroundColour('#cc99ff')
-
         # Load old parameters
         self.load_state()
+        self.time_resolution_pv_name = self.scope_pv_name.split(':')[0] + ":SetResolution"
+
+        # When not autolooping, max iterations and tolerance aren't used
+        if not AUTO_LOOP:
+            self.iterations_txt_ctrl.Disable()
+            self.iterations_txt_ctrl.SetValue('N/A')
+            self.tolerance_txt_ctrl.Disable()
+            self.tolerance_txt_ctrl.SetValue('N/A')
+
         
 
 #####################################################################################
@@ -122,14 +135,61 @@ class SetupFrame(wx.Frame):
             str(int(coerced_length*1e-9/self.time_resolution_pv.get())))
         event.Skip()
     
-    def coerce_value(self, event):
-        obj = event.GetEventObject()        
-        if obj.GetName() == 'gain_ctrl':
-            min=0.05
-            max=1        
-        val = np.clip(float(obj.GetValue()),min,max)
-        obj.SetValue(str(val))
+
+    def coerce_gain(self, event):
+        minimum=0.05
+        maximum=1     
+        obj = event.GetEventObject()
+        try:   
+            gain = np.clip(float(obj.GetValue()),minimum,maximum)
+        except:
+            self.show_error("Gain must be number between {0:.2f} and {1:.2f}".format(minimum, maximum),
+                            "Value error")
+            gain = 0.5
+        obj.SetValue(str(gain))
         event.Skip()
+
+
+    def coerce_iterations(self, event):
+        minimum=1    
+        obj = event.GetEventObject()
+        try:   
+            # Read as float and convert to int to allow scientific notation
+            iterations =  int(max(minimum,float(obj.GetValue())))
+        except:
+            self.show_error("Iterations must be number >= {0:d}".format(minimum),
+                            "Value error")
+            iterations = minimum            
+        obj.SetValue(str(iterations))
+        event.Skip()
+
+
+    def coerce_tolerance(self, event):
+        minimum=0.01    
+        obj = event.GetEventObject()
+        try:   
+            tolerance =  float(max(minimum,float(obj.GetValue())))
+        except:
+            self.show_error("Tolerance must be number >= {0:.2f}".format(minimum),
+                            "Value error")
+            tolerance = minimum            
+        obj.SetValue(str(tolerance))
+        event.Skip()
+
+
+    def coerce_max_percentage_change(self, event):
+        minimum=1
+        maximum=100     
+        obj = event.GetEventObject()
+        try:   
+            change = np.clip(int(obj.GetValue()),minimum,maximum)
+        except:
+            self.show_error("Max percentage change must be number between {0:d} and {1:d}".format(minimum, maximum),
+                            "Value error")
+            change = 25
+        obj.SetValue(str(change))
+        event.Skip()
+
 
     @EpicsFunction
     def on_scope_pv(self,event): 
@@ -141,6 +201,7 @@ class SetupFrame(wx.Frame):
             self.scope_pv_text_ctrl.SetBackgroundColour('#0aff05')
         else:
             self.scope_pv_text_ctrl.SetBackgroundColour('#cc99ff')
+        self.time_resolution_pv_name = self.scope_pv_name.split(':')[0] + ":SetResolution"
         self.scope_pv_text_ctrl.Refresh()
         event.Skip()
 
@@ -192,7 +253,7 @@ class SetupFrame(wx.Frame):
             reason = 'trace'
             curve = self.cTrace
         err = self.load(reason)
-        if not err:
+        if err == CODES.NoError:
             curve.plot_processed()
         else:
             self.show_error("Couldn't read the curve", "Preview error")
@@ -239,7 +300,7 @@ class SetupFrame(wx.Frame):
 
         # Reload curves
         bkg_loaded = self.load('bkg')
-        if bkg_loaded != NO_ERR:
+        if bkg_loaded != CODES.NoError:
             self.show_error("Can't load background curve", "File error")
             return
         if self.tgt_src_cb.GetSelection() == 1:
@@ -261,7 +322,7 @@ class SetupFrame(wx.Frame):
                 return
 
         # Run the loop if files whre succefully loaded
-        if bkg_loaded == NO_ERR and target_loaded == NO_ERR :
+        if bkg_loaded == CODES.NoError and target_loaded == CODES.NoError :
             self.run_loop()
         else:
             self.show_error("Couldn't open the background and/or target files", "File open error")
@@ -289,28 +350,37 @@ class SetupFrame(wx.Frame):
             self.cTargetFile.process('clip','norm', resample = num_pts)
         elif reason == 'trace':
             pass
-            err = 0
+            err = CODES.NoError
         return err
 
 
     def run_loop(self):
-        iterations = int(self.iterations_txt_ctrl.GetValue())
-        tolerance = float(self.tolerance_txt_ctrl.GetValue())
-        max_percent_change = int(self.max_change_txt_ctrl.GetValue())
-        gain = float(self.gain_txt_ctrl.GetValue()) 
-        pulse_length = float(self.plength_text_ctrl.GetValue())
-        start = int(self.scope_start_text_ctrl.GetValue())
-        if not SIMULATION:
-            length = int(int(pulse_length*1e-9/self.time_resolution_pv.get()))
-        else:
-            length = int(self.scope_length_text_control.GetValue())
-        #length = int(self.scope_length_text_control.GetValue())
+        try:
+            if AUTO_LOOP:
+                iterations = int(self.iterations_txt_ctrl.GetValue())
+                tolerance = float(self.tolerance_txt_ctrl.GetValue())
+            else:
+                # Dummy values - these are ignored when not autolooping
+                iterations = 200
+                tolerance = 0
+            max_percent_change = int(self.max_change_txt_ctrl.GetValue())
+            gain = float(self.gain_txt_ctrl.GetValue()) 
+            pulse_length = float(self.plength_text_ctrl.GetValue())
+            start = int(self.scope_start_text_ctrl.GetValue())
+            averages = int(self.trc_avg.GetValue())
+            if not SIMULATION:
+                length = int(int(pulse_length*1e-9/self.time_resolution_pv.get()))
+            else:
+                length = int(self.scope_length_text_control.GetValue())
+        except:
+            self.show_error("Check parameters are all valid numbers", "Value error")
+            return
+        
         scope_pv = self.scope_pv
         time_res_pv = self.time_resolution_pv
         target = self.cTargetFile
         background = self.cBackground
         save_diag_files = True if self.diag_files_radio_box.GetSelection() == 0 else False
-        averages = int(self.trc_avg.GetValue())
         
         self.loop = LoopFrame(self, target, background, pulse_length, start, length, scope_pv, time_res_pv,
                                 averages, gain, iterations, tolerance, max_percent_change, save_diag_files)
@@ -343,6 +413,7 @@ class SetupFrame(wx.Frame):
         with open(filename, 'w') as configfile:
             config.write(configfile)
 
+
     def load_state(self, filename = './state.txt'):
         config = cp.RawConfigParser()
         config.read(filename)
@@ -363,13 +434,15 @@ class SetupFrame(wx.Frame):
             self.library_combo_box.SetSelection(config.getint('Traces', 'lib_index'))
         except:
             pass
-       
+
+
     def show_error(self, msg, cap):
         err = wx.MessageDialog(self, msg, cap,
             style=wx.ICON_ERROR)
         err.ShowModal()
 
-    def popluate_library_combobox(self):
+
+    def populate_library_combobox(self):
         try:
             files = os.listdir(LIBRARY_FILES_LOCATION)
             for f in files:
@@ -378,7 +451,8 @@ class SetupFrame(wx.Frame):
                     self.library_combo_box.Append(pieces[0])
         except:
             pass
-    
+
+
     def __set_properties(self):
         _title = "Beam profiling simulation" if SIMULATION == True else "Beam Profiling"
         self.SetTitle(_title)
@@ -410,6 +484,7 @@ class SetupFrame(wx.Frame):
         self.library_preview_button.SetName('lby_prv')
         self.trace_preview_button.SetName('trace_prv')
         self.gain_txt_ctrl.SetName('gain_ctrl')
+
 
     def __do_layout(self):
         main_sizer = wx.BoxSizer(wx.VERTICAL)

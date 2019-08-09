@@ -3,7 +3,7 @@
 #########################################################################################
 
 from datetime import datetime
-import sys, os, wx
+import sys, os, wx, epics
 
 if sys.version_info[0] < 3:
     import ConfigParser as cp
@@ -22,14 +22,13 @@ AWG_PREFIX = config.get('pvs','awg_prefix')
 DEFAULT_SCOPE_PV = config.get('pvs','scope')
 PAUSE_BETWEEN_AWG_WRITE = config.getfloat('timing','awg_wait')
 LIBRARY_FILES_LOCATION = config.get('file_locations','curve')
-NO_ERR = config.getint('util','no_err')
-ERR = config.getint('util', 'err')
 AWG_ZERO_SHIFT = config.getfloat('awg', 'awg_zero_shift')
 AWG_NS_PER_POINT = config.getfloat('awg', 'awg_ns_per_point')
 AWG_WRITE_METHOD = config.get('awg', 'awg_write_method')
+NOISE_THRESHOLD_PERCENTAGE = config.getfloat('awg','noise_threshold_percentage')
 PULSE_PEAK_POWER = config.getfloat('safety', 'pulse_peak_power')
 AUTO_LOOP = config.getboolean('safety', 'auto_loop')
-AUTO_LOOP_WAIT = config.getfloat('safety', 'auto_loop_wait')
+AUTO_LOOP_WAIT = config.getfloat('timing', 'auto_loop_wait')
 
 EPICS_CA_ADDR_LIST = config.get('epics', 'epics_ca_addr_list')
 EPICS_CA_AUTO_ADDR_LIST = config.get('epics', 'epics_ca_auto_addr_list')
@@ -39,8 +38,23 @@ EPICS_CA_AUTO_ADDR_LIST = config.get('epics', 'epics_ca_auto_addr_list')
 def epics_setup(epicsCAAddrList, epicsCAAutoAddrList):
     os.environ["EPICS_CA_ADDR_LIST"] = epicsCAAddrList
     os.environ["EPICS_CA_AUTO_ADDR_LIST"] = epicsCAAutoAddrList
+
+    # Add caRepeater to the path. The epics module does the hard work of finding
+    # ca.dll and caRepeater is in the same dir
+    ca_dir = epics.ca._find_lib('ca.dll')[:-6]
+    if ca_dir not in(sys.path):
+        sys.path.append(ca_dir)
     
 
 # Provides a date and time string for messages printed to the console
 def get_message_time():
     return datetime.now().strftime("%b_%d_%H:%M.%S")+": "
+
+# Holds utility constants
+class CODES():
+    Proceed = 1 
+    Recalc = 2
+    Abort = 3
+    Pause = 4 
+    Error = 5 
+    NoError = 6
