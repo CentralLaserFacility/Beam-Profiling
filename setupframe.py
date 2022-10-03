@@ -1,15 +1,11 @@
-
-from loopframe import LoopFrame #Must import LoopFrame first as it sets correct matplotlib backend.
+import matplotlib
+matplotlib.use('WXAgg')
+from fileEditor import FileEditDialog
 from curve import Curve, BkgCurve, TargetCurve
 import numpy as np
 import wx, time, os, sys
-from header import (SCOPE_WAIT_TIME, 
-                    SIMULATION, 
-                    DEFAULT_SCOPE_PV,
-                    LIBRARY_FILES_LOCATION, 
-                    AWG_NS_PER_POINT,
-                    AUTO_LOOP,
-                    CODES)
+from util import CODES
+from loopframe import LoopFrame 
 
 if sys.version_info[0] < 3:
     import ConfigParser as cp
@@ -21,9 +17,10 @@ from epics.wx import EpicsFunction, DelayedEpicsCallback
 
 
 class SetupFrame(wx.Frame):
-    def __init__(self, *args, **kwds):
+    def __init__(self, config, **kwargs):
 
-        wx.Frame.__init__(self, *args, pos=wx.Point(50,50)) # *args, **kwds)
+        wx.Frame.__init__(self, **kwargs)#, pos=wx.Point(50,50)) # *args, **kwds)
+        self.config = config
         self.bkg_choice_panel = wx.Panel(self, wx.ID_ANY)
         self.bkg_path_text_ctrl = wx.TextCtrl(self.bkg_choice_panel, wx.ID_ANY, "Path to background file")
         self.bkg_browse_button = wx.BitmapButton(self.bkg_choice_panel, wx.ID_ANY, wx.Bitmap("./gui_files/Open folder.png", wx.BITMAP_TYPE_ANY))
@@ -37,7 +34,7 @@ class SetupFrame(wx.Frame):
         self.library_choice_panel = wx.Panel(self, wx.ID_ANY)
         self.library_combo_box = wx.ComboBox(self.library_choice_panel, wx.ID_ANY, choices=[], style=wx.CB_READONLY | wx.CB_SORT)
         self.library_file_sizer_staticbox = wx.StaticBox(self.library_choice_panel, wx.ID_ANY, "Pulse shape library")
-        self.scope_pv_text_ctrl = wx.TextCtrl(self, wx.ID_ANY, DEFAULT_SCOPE_PV, style=wx.TE_PROCESS_ENTER)
+        self.scope_pv_text_ctrl = wx.TextCtrl(self, wx.ID_ANY, self.config.getVal('scope'), style=wx.TE_PROCESS_ENTER)
         self.library_preview_button = wx.BitmapButton(self, wx.ID_ANY, wx.Bitmap("./gui_files/preview.png", wx.BITMAP_TYPE_ANY))
         self.grab_trace_button = wx.Button(self, wx.ID_ANY, "Grab")
         self.trc_avg = wx.TextCtrl(self, wx.ID_ANY, "1", style=wx.TE_CENTRE)
@@ -63,11 +60,14 @@ class SetupFrame(wx.Frame):
         self.diag_files_radio_box = wx.RadioBox(self, wx.ID_ANY, "Save files?", choices=["Yes", "No"], majorDimension=2, style=wx.RA_SPECIFY_COLS)
         self.go_button = wx.Button(self, wx.ID_ANY, "Go")
 
+        
         # Set windows layout and properties
         self.__set_properties()
         self.__do_layout()
         
         # Event bindings
+        self.Bind(wx.EVT_MENU, self.onConfig, self.configMenuItem)
+        self.Bind(wx.EVT_MENU, self.onFilter, self.filterMenuItem)
         self.Bind(wx.EVT_BUTTON, self.on_browse, self.bkg_browse_button)
         self.Bind(wx.EVT_BUTTON, self.on_preview, self.bkg_preview_button)
         self.Bind(wx.EVT_BUTTON, self.on_browse, self.target_browse_button)
@@ -85,36 +85,33 @@ class SetupFrame(wx.Frame):
         self.tolerance_txt_ctrl.Bind(wx.EVT_KILL_FOCUS, self.coerce_tolerance)
         self.max_change_txt_ctrl.Bind(wx.EVT_KILL_FOCUS, self.coerce_max_percentage_change)
         self.iterations_txt_ctrl.Bind(wx.EVT_KILL_FOCUS, self.coerce_iterations)
-        
-
 
         # Instantiate Curve objects to hold data
-        self.cBackground = BkgCurve(name = 'Background')
-        self.cTargetFile = TargetCurve(name = 'Target')
-        self.cTrace = Curve(name = 'Scope') # Used to hold data from a 'grab'
-        self.scope_pv_name = self.scope_pv_text_ctrl.GetValue().strip()
+        self.background_curve = BkgCurve(name = 'Background')
+        self.target_curve = TargetCurve(name = 'Target')
+        self.scope_curve = Curve(name = 'Scope') # Used to hold data from a 'grab'
 
-        # Find the library curves
-        self.populate_library_combobox()
-
+        # Load old parameters
+        self.load_state()
+        
         # Create scope pvs and connect
         self.scope_pv_name = self.scope_pv_text_ctrl.GetValue().strip()
-        self.time_resolution_pv = epics.PV(self.time_resolution_pv_name)
         self.scope_pv = epics.PV(self.scope_pv_name, connection_callback=self.on_pv_connect)
         if self.scope_pv.connected:
             self.scope_pv_text_ctrl.SetBackgroundColour('#0aff05')
         else:
             self.scope_pv_text_ctrl.SetBackgroundColour('#cc99ff')
-        # Load old parameters
-        self.load_state()
         self.time_resolution_pv_name = self.scope_pv_name.split(':')[0] + ":SetResolution"
+        self.time_resolution_pv = epics.PV(self.time_resolution_pv_name)
 
-        # When not autolooping, max iterations and tolerance aren't used
-        if not AUTO_LOOP:
-            self.iterations_txt_ctrl.Disable()
-            self.iterations_txt_ctrl.SetValue('N/A')
-            self.tolerance_txt_ctrl.Disable()
-            self.tolerance_txt_ctrl.SetValue('N/A')
+        # Trigger event handler with dummy event so initial presented values are correct    
+        self.coerce_pulse_length(wx.CommandEvent())
+        
+        # Final touches to UI depending on configuration settings
+        self.populate_library_combobox()
+        self.setUIforAutoLoop()
+            
+        
 
         
 
@@ -122,17 +119,33 @@ class SetupFrame(wx.Frame):
 # Event handlers
 #####################################################################################
 
+    def onConfig(self, event):
+        apply = self.config.ShowModal()
+        if apply:
+            # Config folder may have changed
+            self.populate_library_combobox()
+            # May have switched simulation mode
+            self.setTitle()
+            # In case autolooping has changed
+            self.setUIforAutoLoop()
+    
+
+    def onFilter(self, event):
+        dlg = FileEditDialog(None, self.config.getVal('filter'))
+        dlg.ShowModal()
+            
+
     def coerce_pulse_length(self, event):
         desired_length = float(self.plength_text_ctrl.GetValue())
-        remainder = desired_length % AWG_NS_PER_POINT
+        remainder = desired_length % self.config.getVal('awg_ns_per_point')
         coerced_length = desired_length - remainder
         self.plength_text_ctrl.SetValue(str(coerced_length))
         # Set the correct slice length
-        if not self.time_resolution_pv.connected:
-            event.Skip()
-            return
-        self.scope_length_text_control.SetValue(
-            str(int(coerced_length*1e-9/self.time_resolution_pv.get())))
+        if self.time_resolution_pv.connected:
+            self.scope_length_text_control.SetValue(
+                str(int(coerced_length*1e-9/self.time_resolution_pv.get())))
+        else: 
+            print(f"PV {self.time_resolution_pv_name} is not connected")
         event.Skip()
     
 
@@ -218,6 +231,7 @@ class SetupFrame(wx.Frame):
 
     def closeWindow(self, event):
         self.save_state()
+        self.config.Destroy()
         self.Destroy()
 
 
@@ -242,16 +256,16 @@ class SetupFrame(wx.Frame):
     def on_preview(self, event):  
         if event.GetEventObject().GetName() == 'bkg_prv':
             reason = 'bkg'
-            curve = self.cBackground
+            curve = self.background_curve
         elif event.GetEventObject().GetName() == 'tgt_prv':
             reason = 'tgt_file'
-            curve = self.cTargetFile
+            curve = self.target_curve
         elif event.GetEventObject().GetName() == 'lby_prv':
             reason = 'library'
-            curve = self.cTargetFile
+            curve = self.target_curve
         elif event.GetEventObject().GetName() == 'trace_prv':
             reason = 'trace'
-            curve = self.cTrace
+            curve = self.scope_curve
         err = self.load(reason)
         if err == CODES.NoError:
             curve.plot_processed()
@@ -259,7 +273,7 @@ class SetupFrame(wx.Frame):
             self.show_error("Couldn't read the curve", "Preview error")
   
   
-    def on_grab_trace(self, event):  
+    def on_grab_trace(self, event): 
         ''' Grabs a user defined number of traces from the scope'''
         num_to_average = int(self.trc_avg.GetValue())
         datas=[]
@@ -268,10 +282,9 @@ class SetupFrame(wx.Frame):
         if self.scope_pv.connected:
             prog = wx.ProgressDialog("Getting scope data", "Reading trace 1", num_to_average)
             while i < num_to_average:
-                #data = epics.caget(self.scope_pv_name)
                 data = self.scope_pv.get()
                 datas.append(data)
-                time.sleep(SCOPE_WAIT_TIME)
+                time.sleep(self.config.getVal('scope_wait'))
                 i+=1
                 prog.Update(i,"Reading trace %d" % (i))                                   
         else:
@@ -280,7 +293,7 @@ class SetupFrame(wx.Frame):
 
         try:
             result = np.average(np.array(datas),axis=0)
-            self.cTrace = Curve(curve_array = result, name = 'Scope')
+            self.scope_curve = Curve(curve_array = result, name = 'Scope')
         except:
             caption = """Scope may not be sending data.
             Check correct PV is connected and that the scope IOC is running"""
@@ -288,12 +301,11 @@ class SetupFrame(wx.Frame):
 
 
     def on_trace_save(self, event):  
-        self.cTrace.save(raw = True)
+        self.scope_curve.save(raw = True)
 
 
-    def on_go(self, event):  
-        gain = float(self.gain_txt_ctrl.GetValue()) 
-        num_points = int(float(self.plength_text_ctrl.GetValue())/AWG_NS_PER_POINT)
+    def on_go(self, event):   
+        num_points = int(float(self.plength_text_ctrl.GetValue())/self.config.getVal('awg_ns_per_point'))
         start = int(self.scope_start_text_ctrl.GetValue())
         length = int(self.scope_length_text_control.GetValue())
         cropping = (start, start+length)
@@ -309,12 +321,12 @@ class SetupFrame(wx.Frame):
             target_loaded = self.load('library')
 
         # Get the latest data for the feedback curve
-        if SIMULATION:
-            temp=0.5*np.ones(np.size(self.cBackground.get_raw()))
+        if self.config.getVal('sim') == True:
+            temp=0.5*np.ones(np.size(self.background_curve.get_raw()))
             temp[250:350]=0
             temp[400:500]=0
             start_curve = Curve(curve_array = temp)
-            start_curve.process('clip','norm',bkg=self.cBackground,
+            start_curve.process('clip','norm',bkg=self.background_curve,
                 crop = cropping , resample = num_points)           
         else:
             if not self.scope_pv.connected:
@@ -335,19 +347,19 @@ class SetupFrame(wx.Frame):
 #####################################################################################
 
     def load(self, reason):
-        num_pts = int(float(self.plength_text_ctrl.GetValue())/AWG_NS_PER_POINT)
+        num_pts = int(float(self.plength_text_ctrl.GetValue())/self.config.getVal('awg_ns_per_point'))
 
         if reason == 'bkg':
             pathname = self.bkg_path_text_ctrl.GetValue()
-            err = self.cBackground.load(num_points=num_pts, trim_method = 'off', data = str(pathname))
+            err = self.background_curve.load(num_points=num_pts, trim_method = 'off', data = str(pathname))
         elif reason == 'tgt_file':
             pathname = self.target_path_text_ctrl.GetValue()
-            err = self.cTargetFile.load(num_points=num_pts, trim_method = 'resample', data = str(pathname))
-            self.cTargetFile.process('clip','norm', resample = num_pts)
+            err = self.target_curve.load(num_points=num_pts, trim_method = 'resample', data = str(pathname))
+            self.target_curve.process('clip','norm', resample = num_pts)
         elif reason == 'library':
-            pathname = LIBRARY_FILES_LOCATION + self.library_combo_box.GetStringSelection() + ".curve"
-            err = self.cTargetFile.load(num_points=num_pts, trim_method = 'resample', data = str(pathname))
-            self.cTargetFile.process('clip','norm', resample = num_pts)
+            pathname = self.config.getVal('curve') + self.library_combo_box.GetStringSelection() + ".curve"
+            err = self.target_curve.load(num_points=num_pts, trim_method = 'resample', data = str(pathname))
+            self.target_curve.process('clip','norm', resample = num_pts)
         elif reason == 'trace':
             pass
             err = CODES.NoError
@@ -356,7 +368,7 @@ class SetupFrame(wx.Frame):
 
     def run_loop(self):
         try:
-            if AUTO_LOOP:
+            if self.config.getVal('auto_loop') == True:
                 iterations = int(self.iterations_txt_ctrl.GetValue())
                 tolerance = float(self.tolerance_txt_ctrl.GetValue())
             else:
@@ -368,22 +380,29 @@ class SetupFrame(wx.Frame):
             pulse_length = float(self.plength_text_ctrl.GetValue())
             start = int(self.scope_start_text_ctrl.GetValue())
             averages = int(self.trc_avg.GetValue())
-            if not SIMULATION:
-                length = int(int(pulse_length*1e-9/self.time_resolution_pv.get()))
+            if not self.config.getVal('sim'):
+                length = int(pulse_length*1e-9/self.time_resolution_pv.get())
             else:
                 length = int(self.scope_length_text_control.GetValue())
         except:
             self.show_error("Check parameters are all valid numbers", "Value error")
             return
         
-        scope_pv = self.scope_pv
-        time_res_pv = self.time_resolution_pv
-        target = self.cTargetFile
-        background = self.cBackground
-        save_diag_files = True if self.diag_files_radio_box.GetSelection() == 0 else False
+        self.config.setVal('scope_pv', self.scope_pv)
+        self.config.setVal('time_res_pv', self.time_resolution_pv)
+        self.config.setVal('target', self.target_curve)
+        self.config.setVal('background', self.background_curve)
+        self.config.setVal('save_diag_files', self.diag_files_radio_box.GetSelection() == 0 )
+        self.config.setVal('iterations', iterations)
+        self.config.setVal('tolerance', tolerance)
+        self.config.setVal('max_percentage_change', max_percent_change)
+        self.config.setVal('gain', gain)
+        self.config.setVal('pulse_length', pulse_length)
+        self.config.setVal('start', start)
+        self.config.setVal('averages', averages)
+        self.config.setVal('length', length)
         
-        self.loop = LoopFrame(self, target, background, pulse_length, start, length, scope_pv, time_res_pv,
-                                averages, gain, iterations, tolerance, max_percent_change, save_diag_files)
+        self.loop = LoopFrame(self, self.config)
 
 
 #####################################################################################
@@ -391,47 +410,47 @@ class SetupFrame(wx.Frame):
 #####################################################################################
 
     def save_state(self, filename = './state.txt'):
-        config = cp.RawConfigParser()
-        config.add_section('Traces')
-        config.add_section('Scope')
-        config.add_section('Parms')
-        config.set('Traces', 'bkg_path', self.bkg_path_text_ctrl.GetValue())
-        config.set('Traces', 'tkg_path', self.target_path_text_ctrl.GetValue())
-        config.set('Traces', 'lib_index', self.library_combo_box.GetCurrentSelection())
-        config.set('Scope', 'scope_pv', self.scope_pv_text_ctrl.GetValue())
-        config.set('Scope', 'averages', self.trc_avg.GetValue())
-        config.set('Scope', 'start', self.scope_start_text_ctrl.GetValue()) 
-        config.set('Scope', 'length', self.scope_length_text_control.GetValue()) 
-        config.set('Parms', 'tgt_src', self.tgt_src_cb.GetSelection())
-        config.set('Parms', 'pulse_length', self.plength_text_ctrl.GetValue())
-        config.set('Parms', 'gain', self.gain_txt_ctrl.GetValue())
-        config.set('Parms', 'iterations', self.iterations_txt_ctrl.GetValue())
-        config.set('Parms', 'tolerance', self.tolerance_txt_ctrl.GetValue())
-        config.set('Parms', 'max_change', self.max_change_txt_ctrl.GetValue())
-        config.set('Parms', 'save_files', self.diag_files_radio_box.GetSelection())
+        config_parser = cp.RawConfigParser()
+        config_parser.add_section('Traces')
+        config_parser.add_section('Scope')
+        config_parser.add_section('Parms')
+        config_parser.set('Traces', 'bkg_path', self.bkg_path_text_ctrl.GetValue())
+        config_parser.set('Traces', 'tkg_path', self.target_path_text_ctrl.GetValue())
+        config_parser.set('Traces', 'lib_index', self.library_combo_box.GetCurrentSelection())
+        config_parser.set('Scope', 'scope_pv', self.scope_pv_text_ctrl.GetValue())
+        config_parser.set('Scope', 'averages', self.trc_avg.GetValue())
+        config_parser.set('Scope', 'start', self.scope_start_text_ctrl.GetValue()) 
+        config_parser.set('Scope', 'length', self.scope_length_text_control.GetValue()) 
+        config_parser.set('Parms', 'tgt_src', self.tgt_src_cb.GetSelection())
+        config_parser.set('Parms', 'pulse_length', self.plength_text_ctrl.GetValue())
+        config_parser.set('Parms', 'gain', self.gain_txt_ctrl.GetValue())
+        config_parser.set('Parms', 'iterations', self.iterations_txt_ctrl.GetValue())
+        config_parser.set('Parms', 'tolerance', self.tolerance_txt_ctrl.GetValue())
+        config_parser.set('Parms', 'max_change', self.max_change_txt_ctrl.GetValue())
+        config_parser.set('Parms', 'save_files', self.diag_files_radio_box.GetSelection())
 
         with open(filename, 'w') as configfile:
-            config.write(configfile)
+            config_parser.write(configfile)
 
 
     def load_state(self, filename = './state.txt'):
-        config = cp.RawConfigParser()
-        config.read(filename)
+        config_parser = cp.RawConfigParser()
+        config_parser.read(filename)
         try:
-            self.bkg_path_text_ctrl.SetValue(config.get('Traces', 'bkg_path')) 
-            self.target_path_text_ctrl.SetValue(config.get('Traces', 'tkg_path'))              
-            self.scope_pv_text_ctrl.SetValue(config.get('Scope', 'scope_pv')) 
-            self.trc_avg.SetValue(config.get('Scope', 'averages')) 
-            self.scope_start_text_ctrl.SetValue(config.get('Scope', 'start')) 
-            self.scope_length_text_control.SetValue(config.get('Scope', 'length')) 
-            self.tgt_src_cb.SetSelection(config.getint('Parms', 'tgt_src')) 
-            self.plength_text_ctrl.SetValue(config.get('Parms', 'pulse_length')) 
-            self.gain_txt_ctrl.SetValue(config.get('Parms', 'gain')) 
-            self.iterations_txt_ctrl.SetValue(config.get('Parms', 'iterations')) 
-            self.tolerance_txt_ctrl.SetValue(config.get('Parms', 'tolerance')) 
-            self.max_change_txt_ctrl.SetValue(config.get('Parms', 'max_change')) 
-            self.diag_files_radio_box.SetSelection(config.getint('Parms', 'save_files'))
-            self.library_combo_box.SetSelection(config.getint('Traces', 'lib_index'))
+            self.bkg_path_text_ctrl.SetValue(config_parser.get('Traces', 'bkg_path')) 
+            self.target_path_text_ctrl.SetValue(config_parser.get('Traces', 'tkg_path'))              
+            self.scope_pv_text_ctrl.SetValue(config_parser.get('Scope', 'scope_pv')) 
+            self.trc_avg.SetValue(config_parser.get('Scope', 'averages')) 
+            self.scope_start_text_ctrl.SetValue(config_parser.get('Scope', 'start')) 
+            self.scope_length_text_control.SetValue(config_parser.get('Scope', 'length')) 
+            self.tgt_src_cb.SetSelection(config_parser.getint('Parms', 'tgt_src')) 
+            self.plength_text_ctrl.SetValue(config_parser.get('Parms', 'pulse_length')) 
+            self.gain_txt_ctrl.SetValue(config_parser.get('Parms', 'gain')) 
+            self.iterations_txt_ctrl.SetValue(config_parser.get('Parms', 'iterations')) 
+            self.tolerance_txt_ctrl.SetValue(config_parser.get('Parms', 'tolerance')) 
+            self.max_change_txt_ctrl.SetValue(config_parser.get('Parms', 'max_change')) 
+            self.diag_files_radio_box.SetSelection(config_parser.getint('Parms', 'save_files'))
+            self.library_combo_box.SetSelection(config_parser.getint('Traces', 'lib_index'))
         except:
             pass
 
@@ -443,19 +462,40 @@ class SetupFrame(wx.Frame):
 
 
     def populate_library_combobox(self):
+        self.library_combo_box.Clear()
         try:
-            files = os.listdir(LIBRARY_FILES_LOCATION)
+            files = os.listdir(self.config.getVal('curve'))
             for f in files:
                 pieces = f.split('.')
-                if pieces[1] == 'curve':
+                if pieces[-1] == 'curve':
                     self.library_combo_box.Append(pieces[0])
+            self.library_combo_box.SetSelection(0)
         except:
             pass
 
 
-    def __set_properties(self):
-        _title = "Beam profiling simulation" if SIMULATION == True else "Beam Profiling"
-        self.SetTitle(_title)
+    def setTitle(self):
+        title = "Beam Profiling (simulation)" if self.config.getVal('sim') == True else "Beam Profiling"
+        self.SetTitle(title)
+
+
+    def setUIforAutoLoop(self):
+        # When not autolooping, max iterations and tolerance aren't used
+        if self.config.getVal('auto_loop') == False:
+            self.iterations_txt_ctrl.Disable()
+            self.iterations_txt_ctrl.SetValue('N/A')
+            self.tolerance_txt_ctrl.Disable()
+            self.tolerance_txt_ctrl.SetValue('N/A')
+        else:
+            self.iterations_txt_ctrl.Enable()
+            self.tolerance_txt_ctrl.Enable()
+            if self.iterations_txt_ctrl.GetValue() == 'N/A':
+                self.iterations_txt_ctrl.SetValue('30')
+                self.tolerance_txt_ctrl.SetValue('0.05')
+
+
+    def __set_properties(self):   
+        self.setTitle()
         self.SetSize((1049, 447))
         self.SetBackgroundColour('#f1f1f1')
         self.bkg_browse_button.SetSize(self.bkg_browse_button.GetBestSize())
@@ -525,6 +565,7 @@ class SetupFrame(wx.Frame):
         bkg_sizer.Add(self.bkg_choice_panel, 2, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
         bkg_sizer.Add((20, 10), 0, wx.ALIGN_CENTER_VERTICAL, 0)
         bkg_sizer.Add(self.bkg_preview_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.EXPAND, 0)
+        main_sizer.Add((20, 10), 0, 0, 0)
         main_sizer.Add(bkg_sizer, 1, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
         main_sizer.Add((20, 10), 0, 0, 0)
         target_file_sizer.Add(self.target_path_text_ctrl, 2, wx.EXPAND, 0)
@@ -573,6 +614,15 @@ class SetupFrame(wx.Frame):
         loop_szr.Add(loop_settings_sizer, 4, wx.ALL | wx.EXPAND, 0)
         loop_szr.Add(self.go_button, 1, wx.EXPAND, 0)
         main_sizer.Add(loop_szr, 1, wx.EXPAND, 0)
+
+        menuBar = wx.MenuBar()
+        settingsMenu = wx.Menu()
+        self.configMenuItem = settingsMenu.Append(wx.NewId(), "Configure", "Edit configuration")
+        self.filterMenuItem = settingsMenu.Append(wx.NewId(), "Edit filter", "Open filter file for editing")
+        menuBar.Append(settingsMenu, "&Settings")
+        
+        self.SetMenuBar(menuBar)
+
         self.SetSizer(main_sizer)
         self.Layout()
 
