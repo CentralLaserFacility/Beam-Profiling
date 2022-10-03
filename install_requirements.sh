@@ -1,8 +1,0 @@
-#!bin/bash
-sudo apt-get update
-sudo apt-get install python-wxgtk2.8
-pip install pyepics 
-pip install numpy 
-pip install scipy
-pip install matplotlib==1.1.1
-

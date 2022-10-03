@@ -1,0 +1,20 @@
+[Traces]
+bkg_path = C:\Users\jqg93617\Documents\repos\beam-profiling\diag_files\2019_03_28_17h40_background.txt
+tkg_path = C:\Users\jqg93617\Documents\repos\beam-profiling\curve_library\square.curve
+lib_index = 0
+
+[Scope]
+scope_pv = CO-SCOPE-2:CH2:ReadWaveform
+averages = 1
+start = 89
+length = 205
+
+[Parms]
+tgt_src = 0
+pulse_length = 10.25
+gain = 1.0
+iterations = N/A
+tolerance = N/A
+max_change = 25
+save_files = 1
+

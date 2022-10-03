@@ -1,15 +1,17 @@
 import epics, time, math, wx
 import numpy as np
 from datetime import datetime
-from header import PAUSE_BETWEEN_AWG_WRITE, AWG_WRITE_METHOD, get_message_time
+from util import get_message_time
+ 
 
-class  Awg(object):
+class  Awg():
 
-    def __init__(self, prefix, pulse_size, max_percent_change_allowed=5):
-        self.prefix = prefix
+    def __init__(self, config, pulse_size, max_percent_change_allowed=5):
+        self.prefix = config.parms['awg_prefix'].value
         self.pulse_size = pulse_size
         self.max_incr = max_percent_change_allowed
-        self.write_method = AWG_WRITE_METHOD
+        self.write_method = config.parms['awg_write_method'].value
+        self.wait_time = config.parms['awg_wait'].value
         self.check_write_method()
     #    self._read_current_shape()
 
@@ -137,7 +139,7 @@ class  Awg(object):
            self.modify_point(i, val)
            #print "simulation - point "+ str(i) + " - value " + str(val) 
            prog.Update(i, "Writing sample %d" % (i))
-           time.sleep(PAUSE_BETWEEN_AWG_WRITE)
+           time.sleep(self.wait_time)
            #raw_input("continue")
 
         # If requested, zero anything outside the current range of pulse shaping algorithm
@@ -149,7 +151,7 @@ class  Awg(object):
                 if self.wf[i] != 0:
                     print(get_message_time()+"Setting point %d to zero" % i)
                     epics.caput(self.prefix + ":_SetSample" + str(i) + "_do",0)
-                    time.sleep(PAUSE_BETWEEN_AWG_WRITE)
+                    time.sleep(self.wait_time)
                 i+=1
         prog.Destroy()
 

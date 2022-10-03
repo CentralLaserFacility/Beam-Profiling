@@ -1,5 +1,5 @@
 import wx
-from header import CODES
+from util import CODES
 
 class LoopControlDialog(wx.Dialog):
     def __init__(self, parent, title = "Message"):

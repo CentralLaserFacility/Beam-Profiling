@@ -1,14 +1,14 @@
-#####################################################################################
-#  User defined filter that is applied to the AWG trace before appling.             #
-#                                                                                   #
-#  The function must be named user_filter                                           #
-#                                                                                   #
-#  The function takes an array of any length and returns the filtered array, which  #
-#  must be of the same length                                                       #
-#                                                                                   #
-# ################################################################################### 
+#############################################################
+#  User defined filter that is applied to the AWG trace before appling.             
+#                                                                                   
+#  The function must be named awg_filter                                            
+#                                                                                   
+#  The function takes an array of any length and returns the filtered array, which  
+#  must be of the same length                                                       
+#                                                                                   
+# ############################################################ 
 
-import numpy as np 
+
 from scipy.ndimage.filters import gaussian_filter1d
 from scipy.signal import medfilt
 
@@ -21,4 +21,5 @@ def median_filter(data):
 def no_filter(data):
     return data
 
-user_filter = gaussian_filter
+
+awg_filter =  gaussian_filter

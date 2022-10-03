@@ -1,7 +1,7 @@
 import numpy as np
 import wx, six
 import matplotlib.pyplot as plt
-from header import CODES
+from util import CODES
 
 
 
