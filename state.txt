@@ -7,11 +7,11 @@ lib_index = 0
 scope_pv = CO-SCOPE-2:CH2:ReadWaveform
 averages = 1
 start = 89
-length = 1000
+length = 205
 
 [Parms]
 tgt_src = 0
-pulse_length = 7.0
+pulse_length = 10.25
 gain = 1.0
 iterations = N/A
 tolerance = N/A
