@@ -4,11 +4,10 @@ import matplotlib.pyplot as plt
 from util import CODES
 
 
-
 class Curve:
-    def __init__(self, curve_array=np.array([]), name = "unnamed"):
+    def __init__(self, curve_array=np.array([]), name="unnamed"):
         """
-        Creates a Curve object. The intialiser optionally takes the argument 
+        Creates a Curve object. The intialiser optionally takes the argument
         curve_array, which is an array specifying the curve. Alternatively
         it initalises an array of zeros, and curves can be loaded from files
         using the load() method or by inputing arrays via the setter() method
@@ -18,17 +17,17 @@ class Curve:
         self._trim_method = "off"
         self._curve = np.zeros(self._num_points)
         self._name = name
-        
-        if np.alen(curve_array) > 0:
+
+        if len(curve_array) > 0:
             self._curve = curve_array
-            self._num_points = np.alen(curve_array)
-        
+            self._num_points = len(curve_array)
+
         self._processed = self._curve
 
     def name(self, name=None):
         if name:
             self._name = name
-        else: 
+        else:
             return self._name
 
     def load(self, num_points=None, trim_method=None, data=None, name=None):
@@ -43,13 +42,13 @@ class Curve:
             The number of points required for the curve. If not set then the
             default number is used (usually 82)
         trim_method: string, optional
-            The method used to manipulate the input into an array of num_points 
+            The method used to manipulate the input into an array of num_points
             in length. Options are 'resample' (default) and 'truncate'. If 'truncate'
-            is chosen, arrays shorter that num_points are zero-padded. If 'off' the 
+            is chosen, arrays shorter that num_points are zero-padded. If 'off' the
             full input array is output.
         data: ndarray or string, optional
-            If an array is supplied, it will be read directly and num_points and trim_method are 
-            ignored. If a string is passed, the file at that path will be loaded. If nothing is 
+            If an array is supplied, it will be read directly and num_points and trim_method are
+            ignored. If a string is passed, the file at that path will be loaded. If nothing is
             passed, a file dialogue will be shown to choose the file.
         name: string, optional
             The name given to the curve. Defaults to either "manual" if data is supplied,
@@ -57,22 +56,22 @@ class Curve:
 
         Returns
         --------
-        out: ndarray 
+        out: ndarray
             A numpy array of length num_points to be accessed by the get_raw() method
         """
 
-        if isinstance(data,np.ndarray):
+        if isinstance(data, np.ndarray):
             self._curve = data
-            self._num_points = np.alen(data)
+            self._num_points = len(data)
             self._processed = data
-            
+
             if not name:
                 self._name = "manual"
-            else: 
+            else:
                 self._name = name
             return CODES.NoError
 
-        elif isinstance(data,str):
+        elif isinstance(data, str):
             pathname = data
 
         else:
@@ -82,15 +81,16 @@ class Curve:
             if not trim_method:
                 trim_method = self._trim_method
 
-            #app = wx.App()
-        
+            # app = wx.App()
+
             frame = wx.Frame(None, -1, "Load a curve")
 
-            with wx.FileDialog(frame, "Load Curve", 
-                    style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST) as fileDialog:
-
+            with wx.FileDialog(
+                frame, "Load Curve", style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST
+            ) as fileDialog:
                 fileDialog.ShowModal()
-                if fileDialog == wx.ID_CANCEL: return
+                if fileDialog == wx.ID_CANCEL:
+                    return
                 pathname = fileDialog.GetPath()
             frame.Destroy()
 
@@ -98,36 +98,40 @@ class Curve:
             self._curve = np.loadtxt(pathname)
 
             if trim_method == "resample":
-                self._processed = self._resample(self._curve,num_points)
+                self._processed = self._resample(self._curve, num_points)
             elif trim_method == "truncate":
                 self._processed = self._curve[:num_points]
-                #pad if needed
+                # pad if needed
                 if np.size(self._processed) < num_points:
-                    np.pad(self._processed,(0,num_points - np.size(self._processed)),'constant')
+                    np.pad(
+                        self._processed,
+                        (0, num_points - np.size(self._processed)),
+                        "constant",
+                    )
             elif trim_method == "off":
                 self._processed = self._curve
             else:
                 pass
 
-            self._num_points = np.alen(self._processed)
-            #self._processed = self._curve
-            
+            self._num_points = len(self._processed)
+            # self._processed = self._curve
+
             if not name:
-                self._name = pathname.split('/')[-1]
-            else: 
+                self._name = pathname.split("/")[-1]
+            else:
                 self._name = name
-            
+
             return CODES.NoError
 
         except:
-            #print("Can't open the file")
+            # print("Can't open the file")
             return CODES.Error
-    
-    def save(self, raw = False, pathname = None):
+
+    def save(self, raw=False, pathname=None):
         """
         save(raw = False, pathname = None)
-        
-        Save the curve as a 1D array. 
+
+        Save the curve as a 1D array.
 
         Parameters
         ----------
@@ -145,23 +149,22 @@ class Curve:
         """
 
         if not pathname:
-            #app = wx.App()
-            
+            # app = wx.App()
+
             frame = wx.Frame(None, -1, "Save the curve")
-            frame.SetDimensions(0,0,200,50)
+            frame.SetDimensions(0, 0, 200, 50)
 
-            with wx.FileDialog(frame, "Save Curve", 
-                            style=wx.FD_SAVE) as fileDialog:
-
-                fileDialog.ShowModal() 
-                if fileDialog == wx.ID_CANCEL: return    # Quit with no save
+            with wx.FileDialog(frame, "Save Curve", style=wx.FD_SAVE) as fileDialog:
+                fileDialog.ShowModal()
+                if fileDialog == wx.ID_CANCEL:
+                    return  # Quit with no save
                 pathname = fileDialog.GetPath()
 
         try:
             if raw:
-                np.savetxt(pathname,self._curve)
+                np.savetxt(pathname, self._curve)
             else:
-                np.savetxt(pathname,self._processed)
+                np.savetxt(pathname, self._processed)
 
         except:
             print("Couldn't save the file")
@@ -171,7 +174,7 @@ class Curve:
         """
         process('clip','norm','bkg' = curve_instance, 'crop' = (start_point, length), 'resample' = new_size)
 
-        Process the curve to prepare for the feedback loop. Each this is run it starts from the 
+        Process the curve to prepare for the feedback loop. Each this is run it starts from the
         raw curve data, so all desired processing parms must be specified each time.
 
         Parameters
@@ -182,12 +185,12 @@ class Curve:
                 Clip the negative values of the curve, replacing with zeros
             "norm", optional
                 Normalise the values to 1
-        
+
         kwargs:
             "bkg", optional: Instance of Curve object
                 The Curve containing the background trace to be used
             "crop", optional: tuple of ints
-                Slice the trace, starting at start_point for length pixels 
+                Slice the trace, starting at start_point for length pixels
             "resample", optional: int
                 Resample the curve to new_size
 
@@ -200,11 +203,11 @@ class Curve:
         # Reset the curve first
         self._processed = self._curve
 
-        supported_args = ["bkg", "crop", "clip", "norm","resample"]
+        supported_args = ["bkg", "crop", "clip", "norm", "resample"]
 
         # Since the order in which this is done is vital, and we can't rely
         # on preserving in the order of **kwargs before python 3.6, go through
-        # and set flags first then deal with them in the right order. 
+        # and set flags first then deal with them in the right order.
 
         do_bkg = do_crop = do_resample = do_clip = do_norm = False
 
@@ -229,17 +232,16 @@ class Curve:
             if key not in supported_args:
                 print("Unrecognised keyword: %s" % key)
 
-       
         if do_bkg:
             # value of "bkg" should be an instance of Curve
-            #print "Sizes %d %d" % (np.size(self._processed), np.size(val_bkg.get_raw()) )
+            # print "Sizes %d %d" % (np.size(self._processed), np.size(val_bkg.get_raw()) )
             self._processed = self._processed - val_bkg.get_raw()
         if do_crop:
             start = val_crop[0]
             stop = val_crop[0] + val_crop[1]
             self._processed = self._processed[start:stop]
         if do_resample:
-            self._processed = self._resample(self._processed, val_resample)  
+            self._processed = self._resample(self._processed, val_resample)
         if do_clip:
             self._processed = self._clip_neg(self._processed)
         if do_norm:
@@ -247,17 +249,17 @@ class Curve:
 
     # Needs rewrite to average over blocks of 5 points at a time
     def _resample(self, data, npoints):
-        im = np.arange(0,len(data))
-        ip = np.linspace(0,len(data)-1,npoints)
+        im = np.arange(0, len(data))
+        ip = np.linspace(0, len(data) - 1, npoints)
         p = np.interp(ip, im, data)
         return p
 
     def _clip_neg(self, data):
-        return np.clip(data,0,np.amax(data))
+        return np.clip(data, 0, np.amax(data))
 
-    def _normalise(self,data):
+    def _normalise(self, data):
         if np.amax(np.abs(data)) != 0:
-            return data/np.amax(np.abs(data))
+            return data / np.amax(np.abs(data))
         else:
             return data
 
@@ -276,30 +278,30 @@ class Curve:
         plt.show(block=True)
 
     def plot_all(self):
-        plt.plot(self._curve, 'g--')
-        plt.plot(self._processed, 'b')
+        plt.plot(self._curve, "g--")
+        plt.plot(self._processed, "b")
         plt.show(block=True)
 
     def plot_clear(self):
         plt.clf()
         plt.draw()
-    
+
     def print_size(self):
-        print("Curve %s size: %d" % (self.name(), np.alen(self.get_raw())))
+        print("Curve %s size: %d" % (self.name(), len(self.get_raw())))
 
-        
+
 class BkgCurve(Curve):
-    '''The same a the Curve class, but modify the process methods as we don't want 
-        to be able to subtract background from a background curve'''
+    """The same a the Curve class, but modify the process methods as we don't want
+    to be able to subtract background from a background curve"""
 
-    def __init__(self, curve_array=np.array([]), name = "unnamed"):
+    def __init__(self, curve_array=np.array([]), name="unnamed"):
         Curve.__init__(self, curve_array, name)
 
     def process(self, *args, **kwargs):
         """
         process('clip','norm','bkg' = curve_instance, 'crop' = (start_point, length), 'resample' = new_size)
 
-        Process the curve to prepare for the feedback loop. Each this is run it starts from the 
+        Process the curve to prepare for the feedback loop. Each this is run it starts from the
         raw curve data, so all desired processing parms must be specified each time.
 
         Parameters
@@ -310,12 +312,12 @@ class BkgCurve(Curve):
                 Clip the negative values of the curve, replacing with zeros
             "norm", optional
                 Normalise the values to 1
-        
+
         kwargs:
             "bkg", optional: Instance of Curve object
                 The Curve containing the background trace to be used
             "crop", optional: tuple of ints
-                Slice the trace, starting at start_point for length pixels 
+                Slice the trace, starting at start_point for length pixels
             "resample", optional: int
                 Resample the curve to new_size
 
@@ -328,11 +330,11 @@ class BkgCurve(Curve):
         # Reset the curve first
         self._processed = self._curve
 
-        supported_args = ["bkg", "crop", "clip", "norm","resample"]
+        supported_args = ["bkg", "crop", "clip", "norm", "resample"]
 
         # Since the order in which this is done is vital, and we can't rely
         # on preserving in the order of **kwargs before python 3.6, go through
-        # and set flags first then deal with them in the right order. 
+        # and set flags first then deal with them in the right order.
 
         do_bkg = do_crop = do_resample = do_clip = do_norm = False
 
@@ -346,7 +348,9 @@ class BkgCurve(Curve):
 
         for key, value in six.iteritems(kwargs):
             if key == "bkg":
-                print("Ignoring keyword: bkg. Background curves don't support background subtraction")
+                print(
+                    "Ignoring keyword: bkg. Background curves don't support background subtraction"
+                )
             if key == "crop":
                 do_crop = True
                 val_crop = value
@@ -361,7 +365,7 @@ class BkgCurve(Curve):
             stop = val_crop[0] + val_crop[1]
             self._processed = self._processed[start:stop]
         if do_resample:
-            self._processed = self._resample(self._processed, val_resample)           
+            self._processed = self._resample(self._processed, val_resample)
         if do_clip:
             self._processed = self._clip_neg(self._processed)
         if do_norm:
@@ -369,17 +373,17 @@ class BkgCurve(Curve):
 
 
 class TargetCurve(Curve):
-    '''The same a the Curve class, but modify the process methods as we don't want 
-        to be able to subtract background from a target curve'''
+    """The same a the Curve class, but modify the process methods as we don't want
+    to be able to subtract background from a target curve"""
 
-    def __init__(self, curve_array=np.array([]), name = "unnamed"):
+    def __init__(self, curve_array=np.array([]), name="unnamed"):
         Curve.__init__(self, curve_array, name)
 
     def process(self, *args, **kwargs):
         """
         process('clip','norm','bkg' = curve_instance, 'crop' = (start_point, length), 'resample' = new_size)
 
-        Process the curve to prepare for the feedback loop. Each this is run it starts from the 
+        Process the curve to prepare for the feedback loop. Each this is run it starts from the
         raw curve data, so all desired processing parms must be specified each time.
 
         Parameters
@@ -390,12 +394,12 @@ class TargetCurve(Curve):
                 Clip the negative values of the curve, replacing with zeros
             "norm", optional
                 Normalise the values to 1
-        
+
         kwargs:
             "bkg", optional: Instance of Curve object
                 The Curve containing the background trace to be used
             "crop", optional: tuple of ints
-                Slice the trace, starting at start_point for length pixels 
+                Slice the trace, starting at start_point for length pixels
             "resample", optional: int
                 Resample the curve to new_size
 
@@ -408,11 +412,11 @@ class TargetCurve(Curve):
         # Reset the curve first
         self._processed = self._curve
 
-        supported_args = ["bkg", "crop", "clip", "norm","resample"]
+        supported_args = ["bkg", "crop", "clip", "norm", "resample"]
 
         # Since the order in which this is done is vital, and we can't rely
         # on preserving in the order of **kwargs before python 3.6, go through
-        # and set flags first then deal with them in the right order. 
+        # and set flags first then deal with them in the right order.
 
         do_bkg = do_crop = do_resample = do_clip = do_norm = False
 
@@ -426,7 +430,9 @@ class TargetCurve(Curve):
 
         for key, value in six.iteritems(kwargs):
             if key == "bkg":
-                print("Ignoring keyword: bkg. Target curves don't support background subtraction")
+                print(
+                    "Ignoring keyword: bkg. Target curves don't support background subtraction"
+                )
             if key == "crop":
                 do_crop = True
                 val_crop = value
@@ -441,9 +447,8 @@ class TargetCurve(Curve):
             stop = val_crop[0] + val_crop[1]
             self._processed = self._processed[start:stop]
         if do_resample:
-            self._processed = self._resample(self._processed, val_resample)           
+            self._processed = self._resample(self._processed, val_resample)
         if do_clip:
             self._processed = self._clip_neg(self._processed)
         if do_norm:
-            self._processed = self._normalise(self._processed)   
-    
+            self._processed = self._normalise(self._processed)
