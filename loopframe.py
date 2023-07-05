@@ -534,6 +534,15 @@ class LoopFrame(wx.Frame):
                 ),
                 "File not found",
             )
+
+            # Use a default if the imported version causes and error
+            def algorithm(target, current, gain):
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    temp = target / current
+                temp[np.isfinite(temp) == False] = 1
+                correction_factor = (temp - 1) * gain + 1
+                return correction_factor
+
         except (NameError, AttributeError) as e:
             self.show_error("Error in {0}:\n\n{1}".format(filename, e), "Not found")
         self.calc_correction_factor = algorithm
