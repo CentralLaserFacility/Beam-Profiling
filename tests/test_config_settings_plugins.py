@@ -1,3 +1,4 @@
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -114,3 +115,20 @@ def test_core_does_not_import_gui_or_epics():
         [sys.executable, "-c", code], cwd=REPO, capture_output=True, text=True, check=True
     )
     assert out.stdout.strip() == ""
+
+
+# ---------------------------------------------------------------- startup
+
+
+def test_epics_configuration(monkeypatch):
+    # main.py runs this at startup; it relies on pyepics internals that change between versions
+    from beam_shaper.hardware.epics_scope import configure_epics
+
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    monkeypatch.delenv("EPICS_CA_ADDR_LIST", raising=False)
+    monkeypatch.delenv("EPICS_CA_AUTO_ADDR_LIST", raising=False)
+    configure_epics("192.168.0.255", "No")
+
+    assert os.environ["EPICS_CA_ADDR_LIST"] == "192.168.0.255"
+    assert os.environ["EPICS_CA_AUTO_ADDR_LIST"] == "No"
+    assert os.path.isdir(sys.path[-1])

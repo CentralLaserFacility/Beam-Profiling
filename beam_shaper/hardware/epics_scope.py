@@ -16,7 +16,7 @@ def configure_epics(addr_list, auto_addr_list):
     # Add caRepeater to the path. The epics module does the hard work of finding
     # ca.dll and caRepeater is in the same dir
     try:
-        ca_dir = epics.ca._find_lib("ca.dll")[:-6]
+        ca_dir = os.path.dirname(str(epics.ca.find_lib("ca")))
     except epics.ca.ChannelAccessException:
         # Can't find library path. Try another way
         ca_dir = epics.__path__[0] + os.path.sep + sys.platform
