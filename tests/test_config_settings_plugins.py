@@ -130,5 +130,8 @@ def test_epics_configuration(monkeypatch):
     configure_epics("192.168.0.255", "No")
 
     assert os.environ["EPICS_CA_ADDR_LIST"] == "192.168.0.255"
-    assert os.environ["EPICS_CA_AUTO_ADDR_LIST"] == "No"
+    assert os.environ["EPICS_CA_AUTO_ADDR_LIST"] == "NO"
     assert os.path.isdir(sys.path[-1])
+
+    configure_epics("192.168.0.255", "Yes")
+    assert os.environ["EPICS_CA_AUTO_ADDR_LIST"] == "YES"

@@ -12,7 +12,9 @@ from beam_shaper.core.interfaces import FeedbackError
 def configure_epics(addr_list, auto_addr_list):
     """Set Channel Access environment. Must run before the first PV is created."""
     os.environ["EPICS_CA_ADDR_LIST"] = addr_list
-    os.environ["EPICS_CA_AUTO_ADDR_LIST"] = auto_addr_list
+    # libca only treats exactly "NO" or "no" as off - anything else, e.g. "No", means YES
+    off = auto_addr_list.strip().lower() in ("no", "false", "0", "off")
+    os.environ["EPICS_CA_AUTO_ADDR_LIST"] = "NO" if off else "YES"
     # Add caRepeater to the path. The epics module does the hard work of finding
     # ca.dll and caRepeater is in the same dir
     try:
