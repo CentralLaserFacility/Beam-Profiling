@@ -9,7 +9,7 @@
 # ############################################################ 
 
 
-from scipy.ndimage.filters import gaussian_filter1d
+from scipy.ndimage import gaussian_filter1d
 from scipy.signal import medfilt
 
 def gaussian_filter(data):
