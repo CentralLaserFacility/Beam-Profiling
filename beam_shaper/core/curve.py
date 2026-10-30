@@ -1,4 +1,5 @@
 import logging
+import os
 
 import numpy as np
 
@@ -163,3 +164,34 @@ class BkgCurve(Curve):
 
 class TargetCurve(Curve):
     supports_background = False
+
+
+LIBRARY_EXTENSION = ".curve"
+
+
+def library_curves(folder):
+    """Names of the target shapes in the library folder, sorted. Empty if the folder is missing."""
+    try:
+        files = os.listdir(folder)
+    except OSError:
+        return []
+    return sorted(f[: -len(LIBRARY_EXTENSION)] for f in files if f.endswith(LIBRARY_EXTENSION))
+
+
+def library_path(folder, name):
+    return os.path.join(folder, name + LIBRARY_EXTENSION)
+
+
+def load_background(path):
+    """Raises OSError or ValueError if the file can't be read."""
+    curve = BkgCurve(name="Background")
+    curve.load(str(path))
+    return curve
+
+
+def load_target(path, num_points):
+    """Load a target shape, resampled to num_points and normalised. Raises OSError or ValueError."""
+    curve = TargetCurve(name="Target")
+    curve.load(str(path), num_points=num_points, trim_method="resample")
+    curve.process(clip=True, norm=True, resample=num_points)
+    return curve

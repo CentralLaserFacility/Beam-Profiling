@@ -26,8 +26,37 @@ def configure_epics(addr_list, auto_addr_list):
         sys.path.append(ca_dir)
 
 
+def attach_to_thread():
+    """Share the Channel Access context with the current (non-main) thread."""
+    epics.ca.use_initial_context()
+
+
 def time_resolution_pv_name(scope_pv_name):
     return scope_pv_name.split(":")[0] + ":SetResolution"
+
+
+def open_scope_pvs(scope_pv_name, on_scope_connection, on_time_res_connection):
+    """Create the scope waveform and time resolution PVs.
+
+    The callbacks get a bool when the connection state changes. They run on a
+    Channel Access thread, so a GUI must hand them over to its own thread.
+    Returns (scope_pv, time_resolution_pv)."""
+    scope_pv = epics.PV(
+        scope_pv_name, connection_callback=lambda conn=False, **kw: on_scope_connection(conn)
+    )
+    time_res_pv = epics.PV(
+        time_resolution_pv_name(scope_pv_name),
+        connection_callback=lambda conn=False, **kw: on_time_res_connection(conn),
+    )
+    return scope_pv, time_res_pv
+
+
+def close_pvs(*pvs):
+    for pv in pvs:
+        if pv is not None:
+            pv.clear_callbacks()
+            pv.connection_callbacks = []
+            pv.disconnect()
 
 
 def read_average(scope_pv, averages, wait, progress):

@@ -55,6 +55,39 @@ class LoopParameters:
     noise_threshold_percentage: float
     awg_zero_shift: float
 
+    @classmethod
+    def from_settings(cls, config, settings):
+        """Combine the app config (AppConfig) with the user's run settings (LoopSettings)."""
+        return cls(
+            gain=settings.gain,
+            iterations=settings.iterations,
+            tolerance=settings.tolerance,
+            max_percent_change=settings.max_percent_change,
+            auto_loop=config.auto_loop,
+            pulse_peak_power=config.pulse_peak_power,
+            noise_threshold_percentage=config.noise_threshold_percentage,
+            awg_zero_shift=config.awg_zero_shift,
+        )
+
+
+@dataclass(frozen=True)
+class LoopSnapshot:
+    """A copy of the loop state, safe to hand to another thread for display."""
+
+    i: int
+    gain: float
+    rms: float
+    peak_power: float
+    target: np.ndarray
+    current: np.ndarray
+    correction: np.ndarray
+    awg_now: np.ndarray
+    awg_next: object  # np.ndarray, or None before the first calculation
+
+
+def _copy(array):
+    return None if array is None else np.array(array, copy=True)
+
 
 class LoopEngine:
     def __init__(
@@ -105,6 +138,19 @@ class LoopEngine:
 
     def is_safe(self):
         return self.peak_power() <= self.params.pulse_peak_power
+
+    def snapshot(self):
+        return LoopSnapshot(
+            i=self.i,
+            gain=self.gain,
+            rms=self.rms_error(),
+            peak_power=self.peak_power(),
+            target=_copy(self.target),
+            current=_copy(self.current_output),
+            correction=_copy(self.correction_factor),
+            awg_now=_copy(self.awg_now),
+            awg_next=_copy(self.awg_next_norm),
+        )
 
     def limits_reached(self):
         return not (self.i < self.params.iterations and self.rms_error() >= self.params.tolerance)
