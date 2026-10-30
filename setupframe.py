@@ -1,20 +1,24 @@
 import matplotlib
 
 matplotlib.use("WXAgg")
-from fileEditor import FileEditDialog
-from curve import Curve, BkgCurve, TargetCurve
-import numpy as np
-import wx, time, os, sys
-from util import CODES
-from loopframe import LoopFrame
-
-if sys.version_info[0] < 3:
-    import ConfigParser as cp
-else:
-    import configparser as cp
+import configparser as cp
+import os
 
 import epics
-from epics.wx import EpicsFunction, DelayedEpicsCallback
+import matplotlib.pyplot as plt
+import wx
+from epics.wx import DelayedEpicsCallback, EpicsFunction
+
+from beam_shaper.core import settings
+from beam_shaper.core.curve import BkgCurve, Curve, TargetCurve
+from beam_shaper.core.interfaces import FeedbackError
+from beam_shaper.core.settings import LoopSettings
+from beam_shaper.hardware.epics_scope import read_average, time_resolution_pv_name
+from configuration import ConfigDialog
+from fileEditor import FileEditDialog
+from loopframe import LoopFrame
+from util import CODES
+from wx_adapters import WxProgress
 
 
 class SetupFrame(wx.Frame):
@@ -62,7 +66,7 @@ class SetupFrame(wx.Frame):
             self.library_choice_panel, wx.ID_ANY, "Pulse shape library"
         )
         self.scope_pv_text_ctrl = wx.TextCtrl(
-            self, wx.ID_ANY, self.config.getVal("scope"), style=wx.TE_PROCESS_ENTER
+            self, wx.ID_ANY, self.config.scope, style=wx.TE_PROCESS_ENTER
         )
         self.library_preview_button = wx.BitmapButton(
             self, wx.ID_ANY, wx.Bitmap("./gui_files/preview.png", wx.BITMAP_TYPE_ANY)
@@ -163,9 +167,7 @@ class SetupFrame(wx.Frame):
             self.scope_pv_text_ctrl.SetBackgroundColour("#0aff05")
         else:
             self.scope_pv_text_ctrl.SetBackgroundColour("#cc99ff")
-        self.time_resolution_pv_name = (
-            self.scope_pv_name.split(":")[0] + ":SetResolution"
-        )
+        self.time_resolution_pv_name = time_resolution_pv_name(self.scope_pv_name)
         self.time_resolution_pv = epics.PV(self.time_resolution_pv_name)
 
         # Trigger event handler with dummy event so initial presented values are correct
@@ -180,7 +182,9 @@ class SetupFrame(wx.Frame):
     #####################################################################################
 
     def onConfig(self, event):
-        apply = self.config.ShowModal()
+        dlg = ConfigDialog(self, self.config)
+        apply = dlg.ShowModal()
+        dlg.Destroy()
         if apply:
             # Config folder may have changed
             self.populate_library_combobox()
@@ -190,87 +194,78 @@ class SetupFrame(wx.Frame):
             self.setUIforAutoLoop()
 
     def onFilter(self, event):
-        dlg = FileEditDialog(None, self.config.getVal("filter"))
+        dlg = FileEditDialog(None, self.config.filter)
         dlg.ShowModal()
 
     def onAlgorithm(self, event):
-        dlg = FileEditDialog(None, self.config.getVal("algorithm"))
+        dlg = FileEditDialog(None, self.config.algorithm)
         dlg.ShowModal()
 
     def coerce_pulse_length(self, event):
         desired_length = float(self.plength_text_ctrl.GetValue())
-        remainder = desired_length % self.config.getVal("awg_ns_per_point")
-        coerced_length = desired_length - remainder
+        coerced_length = settings.coerce_pulse_length(
+            desired_length, self.config.awg_ns_per_point
+        )
         self.plength_text_ctrl.SetValue(str(coerced_length))
         # Set the correct slice length
         if self.time_resolution_pv.connected:
             self.scope_length_text_control.SetValue(
-                str(int(coerced_length * 1e-9 / self.time_resolution_pv.get()))
+                str(
+                    settings.scope_slice_length(
+                        coerced_length, self.time_resolution_pv.get()
+                    )
+                )
             )
         else:
             print(f"PV {self.time_resolution_pv_name} is not connected")
         event.Skip()
 
-    def coerce_gain(self, event):
-        minimum = 0.05
-        maximum = 1
+    def coerce_field(self, event, coerce, error_message, fallback):
+        """Replace a text field's value with the coerced value, or fallback if invalid"""
         obj = event.GetEventObject()
         try:
-            gain = np.clip(float(obj.GetValue()), minimum, maximum)
-        except:
-            self.show_error(
-                "Gain must be number between {0:.2f} and {1:.2f}".format(
-                    minimum, maximum
-                ),
-                "Value error",
-            )
-            gain = 0.5
-        obj.SetValue(str(gain))
+            value = coerce(obj.GetValue())
+        except ValueError:
+            self.show_error(error_message, "Value error")
+            value = fallback
+        obj.SetValue(str(value))
         event.Skip()
+
+    def coerce_gain(self, event):
+        self.coerce_field(
+            event,
+            settings.coerce_gain,
+            "Gain must be number between {0:.2f} and {1:.2f}".format(
+                *settings.GAIN_RANGE
+            ),
+            0.5,
+        )
 
     def coerce_iterations(self, event):
-        minimum = 1
-        obj = event.GetEventObject()
-        try:
-            # Read as float and convert to int to allow scientific notation
-            iterations = int(max(minimum, float(obj.GetValue())))
-        except:
-            self.show_error(
-                "Iterations must be number >= {0:d}".format(minimum), "Value error"
-            )
-            iterations = minimum
-        obj.SetValue(str(iterations))
-        event.Skip()
+        self.coerce_field(
+            event,
+            settings.coerce_iterations,
+            "Iterations must be number >= {0:d}".format(settings.MIN_ITERATIONS),
+            settings.MIN_ITERATIONS,
+        )
 
     def coerce_tolerance(self, event):
-        minimum = 0.01
-        obj = event.GetEventObject()
-        try:
-            tolerance = float(max(minimum, float(obj.GetValue())))
-        except:
-            self.show_error(
-                "Tolerance must be number >= {0:.2f}".format(minimum), "Value error"
-            )
-            tolerance = minimum
-        obj.SetValue(str(tolerance))
-        event.Skip()
+        self.coerce_field(
+            event,
+            settings.coerce_tolerance,
+            "Tolerance must be number >= {0:.2f}".format(settings.MIN_TOLERANCE),
+            settings.MIN_TOLERANCE,
+        )
 
     def coerce_max_percentage_change(self, event):
-        minimum = 1
-        maximum = 100
-        obj = event.GetEventObject()
-        try:
-            change = np.clip(int(obj.GetValue()), minimum, maximum)
-        except:
-            self.show_error(
-                "Max percentage change must be number between {0:d} and {1:d}".format(
-                    minimum, maximum
-                ),
-                "Value error",
-            )
-            change = 25
-        obj.SetValue(str(change))
-        event.Skip()
+        self.coerce_field(
+            event,
+            settings.coerce_max_percentage_change,
+            "Max percentage change must be number between {0:d} and {1:d}".format(
+                *settings.MAX_CHANGE_RANGE
+            ),
+            25,
+        )
 
     @EpicsFunction
     def on_scope_pv(self, event):
@@ -284,9 +279,8 @@ class SetupFrame(wx.Frame):
             self.scope_pv_text_ctrl.SetBackgroundColour("#0aff05")
         else:
             self.scope_pv_text_ctrl.SetBackgroundColour("#cc99ff")
-        self.time_resolution_pv_name = (
-            self.scope_pv_name.split(":")[0] + ":SetResolution"
-        )
+        self.time_resolution_pv_name = time_resolution_pv_name(self.scope_pv_name)
+        self.time_resolution_pv = epics.PV(self.time_resolution_pv_name)
         self.scope_pv_text_ctrl.Refresh()
         event.Skip()
 
@@ -301,17 +295,13 @@ class SetupFrame(wx.Frame):
 
     def closeWindow(self, event):
         self.save_state()
-        self.config.Destroy()
         self.Destroy()
 
     def on_browse(self, event):
-        frame = wx.Frame(None, -1, "Load a curve")
-
         with wx.FileDialog(
-            frame, "Load Curve", style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST
+            self, "Load Curve", style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST
         ) as fileDialog:
-            fileDialog.ShowModal()
-            if fileDialog == wx.ID_CANCEL:
+            if fileDialog.ShowModal() == wx.ID_CANCEL:
                 return
             pathname = fileDialog.GetPath()
 
@@ -319,7 +309,6 @@ class SetupFrame(wx.Frame):
             self.bkg_path_text_ctrl.SetValue(pathname)
         elif event.GetEventObject().GetName() == "tgt_browse":
             self.target_path_text_ctrl.SetValue(pathname)
-        frame.Destroy()
 
     def on_preview(self, event):
         if event.GetEventObject().GetName() == "bkg_prv":
@@ -336,50 +325,35 @@ class SetupFrame(wx.Frame):
             curve = self.scope_curve
         err = self.load(reason)
         if err == CODES.NoError:
-            curve.plot_processed()
+            plt.plot(curve.get_processed())
+            plt.show(block=True)
         else:
             self.show_error("Couldn't read the curve", "Preview error")
 
     def on_grab_trace(self, event):
         """Grabs a user defined number of traces from the scope"""
         num_to_average = int(self.trc_avg.GetValue())
-        datas = []
-        i = 0
         self.on_scope_pv(event)
-        if self.scope_pv.connected:
-            prog = wx.ProgressDialog(
-                "Getting scope data", "Reading trace 1", num_to_average
-            )
-            while i < num_to_average:
-                data = self.scope_pv.get()
-                datas.append(data)
-                time.sleep(self.config.getVal("scope_wait"))
-                i += 1
-                prog.Update(i, "Reading trace %d" % (i))
-        else:
-            self.show_error("Can't connect to scope PV", "Scope read error")
-            return
-
         try:
-            result = np.average(np.array(datas), axis=0)
-            self.scope_curve = Curve(curve_array=result, name="Scope")
-        except:
-            caption = """Scope may not be sending data.
-            Check correct PV is connected and that the scope IOC is running"""
-            self.show_error(caption, "Error when averaging scope data")
+            result = read_average(
+                self.scope_pv, num_to_average, self.config.scope_wait, WxProgress(self)
+            )
+        except FeedbackError as e:
+            self.show_error(str(e), "Scope read error")
+            return
+        self.scope_curve = Curve(curve_array=result, name="Scope")
 
     def on_trace_save(self, event):
-        self.scope_curve.save(raw=True)
+        with wx.FileDialog(self, "Save Curve", style=wx.FD_SAVE) as fileDialog:
+            if fileDialog.ShowModal() == wx.ID_CANCEL:
+                return
+            pathname = fileDialog.GetPath()
+        try:
+            self.scope_curve.save(pathname, raw=True)
+        except OSError as e:
+            self.show_error("Couldn't save the file:\n\n{0}".format(e), "Save error")
 
     def on_go(self, event):
-        num_points = int(
-            float(self.plength_text_ctrl.GetValue())
-            / self.config.getVal("awg_ns_per_point")
-        )
-        start = int(self.scope_start_text_ctrl.GetValue())
-        length = int(self.scope_length_text_control.GetValue())
-        cropping = (start, start + length)
-
         # Reload curves
         bkg_loaded = self.load("bkg")
         if bkg_loaded != CODES.NoError:
@@ -390,23 +364,9 @@ class SetupFrame(wx.Frame):
         else:
             target_loaded = self.load("library")
 
-        # Get the latest data for the feedback curve
-        if self.config.getVal("sim") == True:
-            temp = 0.5 * np.ones(np.size(self.background_curve.get_raw()))
-            temp[250:350] = 0
-            temp[400:500] = 0
-            start_curve = Curve(curve_array=temp)
-            start_curve.process(
-                "clip",
-                "norm",
-                bkg=self.background_curve,
-                crop=cropping,
-                resample=num_points,
-            )
-        else:
-            if not self.scope_pv.connected:
-                self.show_error("Can't connect to scope PV", "Scope read error")
-                return
+        if not self.config.sim and not self.scope_pv.connected:
+            self.show_error("Can't connect to scope PV", "Scope read error")
+            return
 
         # Run the loop if files whre succefully loaded
         if bkg_loaded == CODES.NoError and target_loaded == CODES.NoError:
@@ -421,76 +381,73 @@ class SetupFrame(wx.Frame):
     #####################################################################################
 
     def load(self, reason):
-        num_pts = int(
-            float(self.plength_text_ctrl.GetValue())
-            / self.config.getVal("awg_ns_per_point")
-        )
-
-        if reason == "bkg":
-            pathname = self.bkg_path_text_ctrl.GetValue()
-            err = self.background_curve.load(
-                num_points=num_pts, trim_method="off", data=str(pathname)
+        if reason == "trace":
+            return CODES.NoError
+        try:
+            num_pts = settings.num_points(
+                float(self.plength_text_ctrl.GetValue()), self.config.awg_ns_per_point
             )
-        elif reason == "tgt_file":
-            pathname = self.target_path_text_ctrl.GetValue()
-            err = self.target_curve.load(
-                num_points=num_pts, trim_method="resample", data=str(pathname)
+            if reason == "bkg":
+                self.background_curve.load(
+                    str(self.bkg_path_text_ctrl.GetValue()), num_points=num_pts
+                )
+                return CODES.NoError
+            if reason == "tgt_file":
+                pathname = self.target_path_text_ctrl.GetValue()
+            else:
+                pathname = (
+                    self.config.curve
+                    + self.library_combo_box.GetStringSelection()
+                    + ".curve"
+                )
+            self.target_curve.load(
+                str(pathname), num_points=num_pts, trim_method="resample"
             )
-            self.target_curve.process("clip", "norm", resample=num_pts)
-        elif reason == "library":
-            pathname = (
-                self.config.getVal("curve")
-                + self.library_combo_box.GetStringSelection()
-                + ".curve"
-            )
-            err = self.target_curve.load(
-                num_points=num_pts, trim_method="resample", data=str(pathname)
-            )
-            self.target_curve.process("clip", "norm", resample=num_pts)
-        elif reason == "trace":
-            pass
-            err = CODES.NoError
-        return err
+            self.target_curve.process(clip=True, norm=True, resample=num_pts)
+            return CODES.NoError
+        except (OSError, ValueError):
+            return CODES.Error
 
     def run_loop(self):
         try:
-            if self.config.getVal("auto_loop") == True:
+            if self.config.auto_loop:
                 iterations = int(self.iterations_txt_ctrl.GetValue())
                 tolerance = float(self.tolerance_txt_ctrl.GetValue())
             else:
                 # Dummy values - these are ignored when not autolooping
                 iterations = 200
                 tolerance = 0
-            max_percent_change = int(self.max_change_txt_ctrl.GetValue())
-            gain = float(self.gain_txt_ctrl.GetValue())
             pulse_length = float(self.plength_text_ctrl.GetValue())
-            start = int(self.scope_start_text_ctrl.GetValue())
-            averages = int(self.trc_avg.GetValue())
-            if not self.config.getVal("sim"):
-                length = int(pulse_length * 1e-9 / self.time_resolution_pv.get())
+            if not self.config.sim:
+                length = settings.scope_slice_length(
+                    pulse_length, self.time_resolution_pv.get()
+                )
             else:
                 length = int(self.scope_length_text_control.GetValue())
-        except:
+            loop_settings = LoopSettings(
+                gain=float(self.gain_txt_ctrl.GetValue()),
+                iterations=iterations,
+                tolerance=tolerance,
+                max_percent_change=int(self.max_change_txt_ctrl.GetValue()),
+                pulse_length=pulse_length,
+                slice_start=int(self.scope_start_text_ctrl.GetValue()),
+                slice_length=length,
+                averages=int(self.trc_avg.GetValue()),
+                save_diag_files=self.diag_files_radio_box.GetSelection() == 0,
+            )
+        except (TypeError, ValueError):
             self.show_error("Check parameters are all valid numbers", "Value error")
             return
 
-        self.config.setVal("scope_pv", self.scope_pv)
-        self.config.setVal("time_res_pv", self.time_resolution_pv)
-        self.config.setVal("target", self.target_curve)
-        self.config.setVal("background", self.background_curve)
-        self.config.setVal(
-            "save_diag_files", self.diag_files_radio_box.GetSelection() == 0
+        self.loop = LoopFrame(
+            self,
+            self.config,
+            loop_settings,
+            self.target_curve,
+            self.background_curve,
+            self.scope_pv,
+            self.time_resolution_pv,
         )
-        self.config.setVal("iterations", iterations)
-        self.config.setVal("tolerance", tolerance)
-        self.config.setVal("max_percentage_change", max_percent_change)
-        self.config.setVal("gain", gain)
-        self.config.setVal("pulse_length", pulse_length)
-        self.config.setVal("start", start)
-        self.config.setVal("averages", averages)
-        self.config.setVal("length", length)
-
-        self.loop = LoopFrame(self, self.config)
 
     #####################################################################################
     # Utility functions
@@ -557,7 +514,7 @@ class SetupFrame(wx.Frame):
     def populate_library_combobox(self):
         self.library_combo_box.Clear()
         try:
-            files = os.listdir(self.config.getVal("curve"))
+            files = os.listdir(self.config.curve)
             for f in files:
                 pieces = f.split(".")
                 if pieces[-1] == "curve":
@@ -569,14 +526,14 @@ class SetupFrame(wx.Frame):
     def setTitle(self):
         title = (
             "Beam Profiling (simulation)"
-            if self.config.getVal("sim") == True
+            if self.config.sim
             else "Beam Profiling"
         )
         self.SetTitle(title)
 
     def setUIforAutoLoop(self):
         # When not autolooping, max iterations and tolerance aren't used
-        if self.config.getVal("auto_loop") == False:
+        if not self.config.auto_loop:
             self.iterations_txt_ctrl.Disable()
             self.iterations_txt_ctrl.SetValue("N/A")
             self.tolerance_txt_ctrl.Disable()
