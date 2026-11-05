@@ -281,3 +281,38 @@ def test_file_editor_saves(tmp_path, qtbot):
     dialog.editor.setPlainText("x = 2\n")
     dialog.save()
     assert path.read_text() == "x = 2\n"
+
+
+def test_slice_length_is_editable_when_simulating_and_used(make_setup, monkeypatch, qtbot):
+    setup = make_setup()
+    assert not setup.slice_length.isReadOnly()
+
+    used = {}
+    real_build = setup_window_module.build_engine
+
+    def recording_build(config, settings, *args, **kwargs):
+        used["slice_length"] = settings.slice_length
+        return real_build(config, settings, *args, **kwargs)
+
+    monkeypatch.setattr(setup_window_module, "build_engine", recording_build)
+    setup.slice_length.setValue(300)
+    setup.go_button.click()
+    assert used["slice_length"] == 300
+    finish(qtbot, setup.loop_window)
+    close_loop(qtbot, setup)
+
+
+def test_slice_length_is_calculated_with_hardware(make_setup):
+    setup = make_setup(sim=False)
+    assert setup.slice_length.isReadOnly()
+    assert "calculated" in setup.slice_length.toolTip()
+
+
+def test_slice_length_follows_simulation_setting(make_setup):
+    setup = make_setup()
+    setup.config.sim = False
+    setup.apply_config_to_ui()
+    assert setup.slice_length.isReadOnly()
+    setup.config.sim = True
+    setup.apply_config_to_ui()
+    assert not setup.slice_length.isReadOnly()

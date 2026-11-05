@@ -138,10 +138,8 @@ class SetupWindow(QMainWindow):
 
         self.slice_start = QSpinBox()
         self.slice_start.setRange(0, 10**7)
-        self.slice_length = QSpinBox()
+        self.slice_length = QSpinBox()  # editable or not: see apply_config_to_ui
         self.slice_length.setRange(0, 10**7)
-        self.slice_length.setReadOnly(True)
-        self.slice_length.setButtonSymbols(QSpinBox.NoButtons)
 
         self.target_source = QComboBox()
         self.target_source.addItems(["Library", "File"])
@@ -260,6 +258,20 @@ class SetupWindow(QMainWindow):
         # When not autolooping, max iterations and tolerance aren't used
         self.iterations.setEnabled(self.config.auto_loop)
         self.tolerance.setEnabled(self.config.auto_loop)
+        # With hardware, the slice length follows from the pulse length and the scope's
+        # time resolution. Simulating, there is no scope, so the user sets it.
+        computed = not self.config.sim
+        self.slice_length.setReadOnly(computed)
+        self.slice_length.setButtonSymbols(
+            QSpinBox.NoButtons if computed else QSpinBox.UpDownArrows
+        )
+        self.slice_length.setToolTip(
+            "Number of scope samples covering the pulse, calculated from the pulse length "
+            "and the scope's time resolution"
+            if computed
+            else "Number of scope samples covering the pulse"
+        )
+        self.update_slice_length()
 
     # ---------------------------------------------------------------- scope
 
@@ -292,6 +304,8 @@ class SetupWindow(QMainWindow):
         self.update_slice_length()
 
     def update_slice_length(self):
+        if self.config.sim:
+            return  # set by the user
         resolution = self.time_resolution()
         if resolution:
             self.slice_length.setValue(
