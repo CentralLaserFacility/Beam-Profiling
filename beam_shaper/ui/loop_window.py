@@ -1,7 +1,7 @@
 import logging
 
 import numpy as np
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import QTimer, Signal
 from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QHBoxLayout,
@@ -34,7 +34,7 @@ class LoopWindow(QMainWindow):
     def __init__(self, engine, auto_loop, auto_loop_wait, ns_per_point, sim, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Loop (simulation)" if sim else "Loop")
-        self.resize(1200, 650)
+        self.resize(1400, 650)
         self.auto_loop = auto_loop
         self.auto_loop_wait = auto_loop_wait
         self.time_axis = np.arange(engine.num_points) * ns_per_point
@@ -46,6 +46,8 @@ class LoopWindow(QMainWindow):
 
         # Show log messages from the loop and hardware in the log panel
         self.log_handler = QtLogHandler()
+        # The audit detail (full traces) is for the log file only
+        self.log_handler.addFilter(lambda record: not record.name.startswith("beam_shaper.audit"))
         self.log_handler.emitter.message.connect(self.log.appendPlainText)
         app_log = logging.getLogger("beam_shaper")
         if app_log.level == logging.NOTSET:
@@ -89,8 +91,17 @@ class LoopWindow(QMainWindow):
         self.awg_next_line = self.awg_plot.plot(pen=ORANGE, name="AWG next")
         self.awg_plot.setYRange(-0.1, 1.2)
 
+        # RMS after each measurement, to show whether the loop is converging
+        self.rms_plot = make_plot("Convergence", "Iteration")
+        self.rms_plot.setLabel("left", "RMS")
+        self.rms_plot.getAxis("left").enableAutoSIPrefix(False)
+        self.rms_line = self.rms_plot.plot(
+            pen=BLUE, symbol="o", symbolSize=6, symbolBrush=BLUE.color()
+        )
+        self.rms_plot.setYRange(0, 0.5)
+
         plots = QHBoxLayout()
-        for plot in (self.shape_plot, self.correction_plot, self.awg_plot):
+        for plot in (self.shape_plot, self.correction_plot, self.awg_plot, self.rms_plot):
             plots.addWidget(plot)
 
         # Progress of slow hardware operations
@@ -106,12 +117,8 @@ class LoopWindow(QMainWindow):
             self.countdown_label = QLabel()
             self.cancel_button = QPushButton("Cancel write")
             self.cancel_button.clicked.connect(lambda: self.respond(Decision.ABORT))
-            self.stop_button = QPushButton("Stop")
-            self.stop_button.setStyleSheet(STOP_STYLE)
-            self.stop_button.clicked.connect(self.on_stop)
             controls.addWidget(self.countdown_label, 1)
             controls.addWidget(self.cancel_button)
-            controls.addWidget(self.stop_button, 1)
         else:
             self.gain_spin = QDoubleSpinBox()
             self.gain_spin.setRange(0.0, 1.0)
@@ -130,10 +137,23 @@ class LoopWindow(QMainWindow):
             self.continue_button.setStyleSheet(BIG_BUTTON_STYLE)
             self.continue_button.setEnabled(False)
             self.continue_button.clicked.connect(self.on_continue)
-            for widget in (self.gain_spin, self.apply_button, self.replot_button, self.pause_button):
+            for widget in (
+                self.gain_spin,
+                self.apply_button,
+                self.replot_button,
+                self.pause_button,
+            ):
                 controls.addWidget(widget)
             controls.addStretch(1)
             controls.addWidget(self.continue_button, 1)
+        # Stop also interrupts an AWG write in progress, restoring the previous trace
+        self.stop_button = QPushButton("Stop")
+        self.stop_button.setStyleSheet(STOP_STYLE)
+        self.stop_button.setToolTip(
+            "Stop the loop. A write in progress is stopped and the previous AWG trace restored."
+        )
+        self.stop_button.clicked.connect(self.on_stop)
+        controls.addWidget(self.stop_button, 1)
 
         self.log = QPlainTextEdit()
         self.log.setReadOnly(True)
@@ -165,6 +185,9 @@ class LoopWindow(QMainWindow):
             self.awg_now_line.setData(self.time_axis, s.awg_now)
             next_trace = s.awg_next if s.awg_next is not None else s.awg_now
             self.awg_next_line.setData(self.time_axis, next_trace)
+        if s.rms_history:
+            self.rms_line.setData(range(len(s.rms_history)), s.rms_history)
+            self.rms_plot.enableAutoRange(axis="y")
         self.status_label.setText(
             "Iteration: {0:d}    RMS: {1:.3f}    Peak Power: {2:.2f}    Gain: {3:.2f}".format(
                 s.i, s.rms, s.peak_power, s.gain
@@ -201,7 +224,12 @@ class LoopWindow(QMainWindow):
             if not awaiting:
                 self.countdown_label.setText("")
         else:
-            for widget in (self.apply_button, self.replot_button, self.pause_button, self.gain_spin):
+            for widget in (
+                self.apply_button,
+                self.replot_button,
+                self.pause_button,
+                self.gain_spin,
+            ):
                 widget.setEnabled(awaiting)
 
     def on_approval_needed(self, snapshot):
@@ -242,20 +270,24 @@ class LoopWindow(QMainWindow):
     def on_stop(self):
         self.worker.request_stop()
         self.stop_button.setEnabled(False)
-        # If counting down, finish now: the loop checks for the stop before writing
+        self.status_label.setText("Stopping...")
         if self.worker.awaiting_approval:
-            self.respond(Decision.APPLY)
+            if self.auto_loop:
+                # Finish the countdown now: the loop checks for the stop before writing
+                self.respond(Decision.APPLY)
+            else:
+                self.respond(Decision.ABORT)
 
     def on_continue(self):
         self.continue_button.setEnabled(False)
+        self.stop_button.setEnabled(True)
         self.worker.start_run()
 
     def on_finished(self, result):
         self.last_result = result
         self.set_awaiting(False)
-        if self.auto_loop:
-            self.stop_button.setEnabled(False)
-        elif result is not None and result.outcome is Outcome.PAUSED:
+        self.stop_button.setEnabled(False)
+        if not self.auto_loop and result is not None and result.outcome is Outcome.PAUSED:
             self.continue_button.setEnabled(not self.worker.engine.limits_reached())
         if self.close_pending:
             self.close()
