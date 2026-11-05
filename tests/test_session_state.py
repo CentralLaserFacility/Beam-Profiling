@@ -75,7 +75,11 @@ def test_build_engine_reports_broken_plugins(tmp_path):
 def test_snapshot_is_a_copy(tmp_path):
     target = load_target(str(REPO / "curve_library" / "square.curve"), 82)
     engine, _ = build_engine(
-        sim_config(tmp_path), loop_settings(), target, BkgCurve(curve_array=np.zeros(1000)), sim_write_time=0
+        sim_config(tmp_path),
+        loop_settings(),
+        target,
+        BkgCurve(curve_array=np.zeros(1000)),
+        sim_write_time=0,
     )
     engine.start()
     snap = engine.snapshot()

@@ -7,7 +7,7 @@ import pytest
 
 from beam_shaper.core.correction import default_correction, no_filter
 from beam_shaper.core.curve import BkgCurve, Curve, TargetCurve
-from beam_shaper.core.loop import LoopEngine, LoopParameters, Decision, Outcome
+from beam_shaper.core.loop import Decision, LoopEngine, LoopParameters, Outcome
 from beam_shaper.core.plugins import load_awg_filter
 from beam_shaper.hardware.sim import SimAwg, SimFeedback, simulated_start_shape
 

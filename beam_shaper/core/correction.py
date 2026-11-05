@@ -10,7 +10,7 @@ def default_correction(target, current, gain):
     with np.errstate(divide="ignore", invalid="ignore"):
         temp = target / current
     # replace any non-finite values in the correction with 1
-    temp[np.isfinite(temp) == False] = 1
+    temp[~np.isfinite(temp)] = 1
     return (temp - 1) * gain + 1
 
 

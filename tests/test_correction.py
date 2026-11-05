@@ -7,9 +7,7 @@ from beam_shaper.core import correction as corr
 def test_default_correction_moves_towards_target_by_gain():
     target = np.array([1.0, 0.5, 0.2])
     current = np.array([0.5, 0.5, 0.4])
-    np.testing.assert_allclose(
-        corr.default_correction(target, current, 0.5), [1.5, 1.0, 0.75]
-    )
+    np.testing.assert_allclose(corr.default_correction(target, current, 0.5), [1.5, 1.0, 0.75])
 
 
 def test_default_correction_is_one_where_current_is_zero():
@@ -44,9 +42,7 @@ def test_awg_is_zero_wherever_target_is_zero():
 
 def test_peak_power_and_rms():
     assert corr.peak_power(np.array([1.0, 0.5, 0.5, 0.0])) == pytest.approx(2.0)
-    assert corr.rms_error(np.array([1.0, 0.0]), np.array([0.0, 0.0])) == pytest.approx(
-        np.sqrt(0.5)
-    )
+    assert corr.rms_error(np.array([1.0, 0.0]), np.array([0.0, 0.0])) == pytest.approx(np.sqrt(0.5))
 
 
 def test_unknown_values_are_minus_one():
