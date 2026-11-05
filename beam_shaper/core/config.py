@@ -1,4 +1,7 @@
-"""Application configuration held in config.ini, independent of any GUI."""
+"""Application configuration held in config.ini, independent of any GUI.
+
+config.ini holds the defaults and is kept in git. Each machine's own settings go in
+config.local.ini next to it, which overrides config.ini and is not kept in git."""
 
 import configparser
 import os
@@ -34,17 +37,23 @@ class AppConfig:
     epics_ca_auto_addr_list: str = _opt(
         "epics", "Channel Access auto addr list", "No", ("No", "Yes")
     )
+    # Folder that relative file locations are relative to. Not saved in the file.
+    base_dir: str = field(default=".", metadata={"section": None}, compare=False)
 
     @staticmethod
     def options():
-        """The fields of the config, with their metadata, in display order."""
-        return fields(AppConfig)
+        """The options saved in config.ini, with their metadata, in display order."""
+        return [f for f in fields(AppConfig) if f.metadata.get("section")]
+
+    def path(self, name):
+        """The file location option `name` as an absolute path."""
+        return os.path.normpath(os.path.join(self.base_dir, getattr(self, name)))
 
     def set_from_string(self, name, text):
         """Set a field from user-entered text, converting to the field's type.
 
         Raises ValueError if the text can't be converted."""
-        f = next(f for f in fields(self) if f.name == name)
+        f = next(f for f in self.options() if f.name == name)
         if f.type is bool:
             value = text if isinstance(text, bool) else _parse_bool(text)
         elif f.type is int:
@@ -61,21 +70,26 @@ class AppConfig:
         setattr(self, name, value)
 
     @classmethod
-    def load(cls, filename="./config.ini"):
+    def load(cls, *filenames, base_dir=None):
+        """Read config files in order; later files override earlier ones. Missing files are skipped.
+
+        base_dir defaults to the folder of the first file."""
+        filenames = filenames or ("./config.ini",)
         parser = configparser.RawConfigParser()
-        parser.read(filename)
+        parser.read(filenames)
         config = cls()
-        for f in fields(cls):
+        for f in cls.options():
             section = f.metadata["section"]
             if parser.has_option(section, f.name):
                 config.set_from_string(f.name, parser.get(section, f.name))
+        config.base_dir = str(base_dir or os.path.dirname(os.path.abspath(filenames[0])))
         return config
 
-    def save(self, filename="./config.ini"):
+    def save(self, filename="./config.local.ini"):
         # Read the existing file first so unknown sections and keys survive
         parser = configparser.RawConfigParser()
         parser.read(filename)
-        for f in fields(self):
+        for f in self.options():
             section = f.metadata["section"]
             if not parser.has_section(section):
                 parser.add_section(section)
@@ -84,8 +98,7 @@ class AppConfig:
             parser.write(configfile)
 
     def ensure_diag_folder(self):
-        if not os.path.exists(self.diag):
-            os.makedirs(self.diag)
+        os.makedirs(self.path("diag"), exist_ok=True)
 
 
 def _parse_bool(text):

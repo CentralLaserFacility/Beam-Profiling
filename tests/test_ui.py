@@ -26,7 +26,7 @@ class FakePV:
         self.value = value
         self.connection_callbacks = []
 
-    def get(self):
+    def get(self, **kwargs):
         return self.value
 
     def clear_callbacks(self):
@@ -42,7 +42,9 @@ def messages(monkeypatch):
     shown = []
     for kind in ("critical", "warning"):
         monkeypatch.setattr(
-            QMessageBox, kind, staticmethod(lambda parent, caption, text, k=kind: shown.append((k, caption, text)))
+            QMessageBox,
+            kind,
+            staticmethod(lambda parent, caption, text, k=kind: shown.append((k, caption, text))),
         )
     return shown
 
@@ -54,7 +56,9 @@ def make_setup(tmp_path, monkeypatch, qtbot, messages):
         setup_window_module, "open_scope_pvs", lambda name, on_conn, on_res: (scope, FakePV())
     )
     # Simulated AWG writes happen instantly
-    monkeypatch.setattr(setup_window_module, "build_engine", functools.partial(build_engine, sim_write_time=0))
+    monkeypatch.setattr(
+        setup_window_module, "build_engine", functools.partial(build_engine, sim_write_time=0)
+    )
 
     background = tmp_path / "bkg.txt"
     np.savetxt(background, 0.01 * np.ones(1000))
@@ -95,7 +99,10 @@ def make_setup(tmp_path, monkeypatch, qtbot, messages):
 
 
 def finish(qtbot, loop_window):
-    qtbot.waitUntil(lambda: loop_window.last_result is not None and not loop_window.worker.running, timeout=TIMEOUT)
+    qtbot.waitUntil(
+        lambda: loop_window.last_result is not None and not loop_window.worker.running,
+        timeout=TIMEOUT,
+    )
     return loop_window.last_result
 
 
@@ -128,6 +135,7 @@ def test_auto_loop_runs_to_completion(make_setup, qtbot, messages):
     assert "Iteration: 4" in loop.status_label.text()
     assert len(loop.current_line.getData()[1]) == 82
     assert "Loop ended" in loop.log.toPlainText()
+    assert "AWG trace" not in loop.log.toPlainText()  # audit detail is for the log file only
     assert messages == []
 
     close_loop(qtbot, setup)
@@ -223,7 +231,9 @@ def test_go_reports_missing_background(make_setup, messages):
     setup.bkg_path.setText("no_such_file.txt")
     setup.go_button.click()
     assert setup.loop_window is None
-    assert messages == [("critical", "File error", "Can't load background curve")]
+    [(kind, caption, text)] = messages
+    assert (kind, caption) == ("critical", "File error")
+    assert text.startswith("Can't load background curve") and "no_such_file.txt" in text
 
 
 def test_grab_trace_averages_scope(make_setup, qtbot, messages):

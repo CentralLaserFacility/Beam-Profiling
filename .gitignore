@@ -33,6 +33,7 @@ MANIFEST
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
 *.spec
+!main.spec
 
 # Installer logs
 pip-log.txt
@@ -105,3 +106,17 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# Local virtual environments
+.venv*/
+
+# Editor backup and undo files
+*~
+*.un~
+*.swp
+
+# This machine's settings, saved window state, logs and run output
+config.local.ini
+state.txt
+logs/
+diag_files/

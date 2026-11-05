@@ -1,5 +1,3 @@
-import os
-
 from PySide6.QtCore import Signal
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import (
@@ -25,6 +23,7 @@ from beam_shaper.core import settings
 from beam_shaper.core.curve import Curve, library_curves, library_path, load_background, load_target
 from beam_shaper.core.settings import LoopSettings
 from beam_shaper.hardware.epics_scope import close_pvs, open_scope_pvs, read_average
+from beam_shaper.paths import ICON_FOLDER, resolve
 from beam_shaper.session import build_engine
 from beam_shaper.ui.config_dialog import ConfigDialog
 from beam_shaper.ui.file_editor import FileEditDialog
@@ -39,14 +38,13 @@ GO_STYLE = (
     "QPushButton { background: #0aff05; color: black; font: bold 14pt; }"
     "QPushButton:disabled { background: #a8d8a6; color: #606060; }"
 )
-ICONS = "gui_files"
 
 
 def _icon_button(icon_file, tooltip):
     button = QToolButton()
-    path = os.path.join(ICONS, icon_file)
-    if os.path.exists(path):
-        button.setIcon(QIcon(path))
+    path = resolve(ICON_FOLDER) / icon_file
+    if path.exists():
+        button.setIcon(QIcon(str(path)))
     else:
         button.setText(tooltip)
     button.setToolTip(tooltip)
@@ -68,7 +66,7 @@ class SetupWindow(QMainWindow):
     scope_connection_changed = Signal(bool)
     time_res_connection_changed = Signal(bool)
 
-    def __init__(self, config, config_file="./config.ini", state_file="./state.txt"):
+    def __init__(self, config, config_file="./config.local.ini", state_file="./state.txt"):
         super().__init__()
         self.config = config
         self.config_file = config_file
@@ -207,8 +205,8 @@ class SetupWindow(QMainWindow):
         menu = self.menuBar().addMenu("&Settings")
         for text, slot in (
             ("Configure...", self.edit_config),
-            ("Edit filter...", lambda: self.edit_file(self.config.filter)),
-            ("Edit algorithm...", lambda: self.edit_file(self.config.algorithm)),
+            ("Edit filter...", lambda: self.edit_file(self.config.path("filter"))),
+            ("Edit algorithm...", lambda: self.edit_file(self.config.path("algorithm"))),
         ):
             action = QAction(text, self)
             action.triggered.connect(slot)
@@ -252,7 +250,7 @@ class SetupWindow(QMainWindow):
 
     def populate_library(self, index=0):
         self.library.clear()
-        self.library.addItems(library_curves(self.config.curve))
+        self.library.addItems(library_curves(self.config.path("curve")))
         if 0 <= index < self.library.count():
             self.library.setCurrentIndex(index)
 
@@ -305,7 +303,9 @@ class SetupWindow(QMainWindow):
         if self.task is not None:
             return
         pv, n, wait = self.scope_pv, self.averages.value(), self.config.scope_wait
-        self.task = TaskWorker(lambda progress: read_average(pv, n, wait, progress), self.config.sim)
+        self.task = TaskWorker(
+            lambda progress: read_average(pv, n, wait, progress), self.config.sim
+        )
 
         self.grab_dialog = QProgressDialog("Reading trace 1", None, 0, n, self)
         self.grab_dialog.setWindowTitle("Getting scope data")
@@ -354,21 +354,21 @@ class SetupWindow(QMainWindow):
     def target_file(self, from_file):
         if from_file:
             return self.target_path.text()
-        return library_path(self.config.curve, self.library.currentText())
+        return library_path(self.config.path("curve"), self.library.currentText())
 
     def preview_background(self):
         try:
             curve = load_background(self.bkg_path.text())
-        except (OSError, ValueError):
-            self.show_error("Couldn't read the curve", "Preview error")
+        except (OSError, ValueError) as e:
+            self.show_error("Couldn't read the curve:\n\n{0}".format(e), "Preview error")
             return
         self.show_preview("Background", curve.get_processed())
 
     def preview_target(self, from_file):
         try:
             curve = load_target(self.target_file(from_file), self.num_points())
-        except (OSError, ValueError):
-            self.show_error("Couldn't read the curve", "Preview error")
+        except (OSError, ValueError) as e:
+            self.show_error("Couldn't read the curve:\n\n{0}".format(e), "Preview error")
             return
         self.show_preview("Target", curve.get_processed())
 
@@ -382,15 +382,15 @@ class SetupWindow(QMainWindow):
     def on_go(self):
         try:
             background = load_background(self.bkg_path.text())
-        except (OSError, ValueError):
-            self.show_error("Can't load background curve", "File error")
+        except (OSError, ValueError) as e:
+            self.show_error("Can't load background curve:\n\n{0}".format(e), "File error")
             return
         try:
             target = load_target(
                 self.target_file(self.target_source.currentIndex() == 1), self.num_points()
             )
-        except (OSError, ValueError):
-            self.show_error("Couldn't open the target file", "File open error")
+        except (OSError, ValueError) as e:
+            self.show_error("Couldn't open the target file:\n\n{0}".format(e), "File open error")
             return
 
         if self.config.sim:
