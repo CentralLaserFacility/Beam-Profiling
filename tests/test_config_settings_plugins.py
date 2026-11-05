@@ -107,7 +107,7 @@ def test_core_does_not_import_gui_or_epics():
     code = (
         "import sys, pkgutil, importlib, beam_shaper.core as c\n"
         "for m in pkgutil.iter_modules(c.__path__): importlib.import_module('beam_shaper.core.' + m.name)\n"
-        "import beam_shaper.hardware.sim\n"
+        "import beam_shaper.hardware.sim, beam_shaper.session\n"
         "bad = [m for m in ('wx', 'epics', 'matplotlib', 'PySide6') if m in sys.modules]\n"
         "print(','.join(bad))\n"
     )
