@@ -8,7 +8,6 @@ import threading
 
 from PySide6.QtCore import QObject, QThread, Signal, Slot
 
-from beam_shaper.core.loop import Decision
 from beam_shaper.session import prepare_worker_thread
 
 log = logging.getLogger(__name__)

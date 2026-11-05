@@ -13,9 +13,10 @@ from beam_shaper.core.config import AppConfig
 
 
 class ConfigDialog(QDialog):
-    """Edits an AppConfig. When accepted, the config is updated and saved to filename."""
+    """Edits an AppConfig. When accepted, the config is updated and saved to filename
+    (this machine's config.local.ini, which overrides the defaults in config.ini)."""
 
-    def __init__(self, config, filename="./config.ini", parent=None):
+    def __init__(self, config, filename="./config.local.ini", parent=None):
         super().__init__(parent)
         self.setWindowTitle("Beam profiling configuration")
         self.config = config

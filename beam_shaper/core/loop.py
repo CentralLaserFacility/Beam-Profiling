@@ -11,9 +11,21 @@ from enum import Enum
 import numpy as np
 
 from beam_shaper.core import correction as corr
-from beam_shaper.core.interfaces import FeedbackError, NullProgress
+from beam_shaper.core.interfaces import (
+    AwgWriteError,
+    FeedbackError,
+    NullProgress,
+    WriteCancelled,
+    never_cancel,
+)
 
 log = logging.getLogger(__name__)
+# Full detail for the log file (e.g. every trace written); the GUI log panel leaves it out
+audit_log = logging.getLogger("beam_shaper.audit")
+
+
+class AlgorithmError(Exception):
+    """The user's correction algorithm failed or returned unusable values."""
 
 
 class Decision(Enum):
@@ -30,6 +42,8 @@ class Outcome(Enum):
     STOPPED = 4
     UNSAFE = 5
     FEEDBACK_ERROR = 6
+    WRITE_ERROR = 7
+    ALGORITHM_ERROR = 8
 
 
 @dataclass
@@ -39,7 +53,12 @@ class LoopResult:
 
     @property
     def is_error(self):
-        return self.outcome in (Outcome.UNSAFE, Outcome.FEEDBACK_ERROR)
+        return self.outcome in (
+            Outcome.UNSAFE,
+            Outcome.FEEDBACK_ERROR,
+            Outcome.WRITE_ERROR,
+            Outcome.ALGORITHM_ERROR,
+        )
 
 
 @dataclass
@@ -83,10 +102,29 @@ class LoopSnapshot:
     correction: np.ndarray
     awg_now: np.ndarray
     awg_next: object  # np.ndarray, or None before the first calculation
+    rms_history: tuple = ()  # RMS after each measurement, starting with the first
 
 
 def _copy(array):
     return None if array is None else np.array(array, copy=True)
+
+
+def _check_trace(values, n, what):
+    """Return values as a float array, or raise ValueError saying what is wrong with it."""
+    try:
+        array = np.asarray(values, dtype=float)
+    except (TypeError, ValueError):
+        raise ValueError(
+            "{0} returned {1!r}, not an array of numbers".format(what, type(values))
+        ) from None
+    if array.shape != (n,):
+        raise ValueError(
+            "{0} returned {1} values; expected {2}".format(what, array.size if array.ndim else 1, n)
+        )
+    bad = np.count_nonzero(~np.isfinite(array))
+    if bad:
+        raise ValueError("{0} returned NaN or infinite values at {1} point(s)".format(what, bad))
+    return array
 
 
 class LoopEngine:
@@ -104,12 +142,15 @@ class LoopEngine:
         on_warning=None,
     ):
         """
-        target: normalised target shape, one value per AWG point
+        target: target shape, one value per AWG point. Raises ValueError if it has no signal.
         awg, feedback: hardware (see beam_shaper.core.interfaces)
         diagnostics: a DiagnosticWriter, or None to not save files
         on_warning: called with (message, caption) for non-fatal problems
         """
-        self.target = np.asarray(target) / np.max(target)
+        target = np.asarray(target, dtype=float)
+        if target.size == 0 or not np.all(np.isfinite(target)) or np.max(target) <= 0:
+            raise ValueError("The target shape is empty, all zero or contains invalid values")
+        self.target = target / np.max(target)
         self.params = params
         self.gain = params.gain
         self.awg = awg
@@ -127,6 +168,7 @@ class LoopEngine:
         self.awg_now = None
         self.correction_factor = np.zeros(self.num_points)
         self.awg_next_norm = None
+        self.rms_history = []
 
     # ------------------------------------------------------------------ state
 
@@ -150,6 +192,7 @@ class LoopEngine:
             correction=_copy(self.correction_factor),
             awg_now=_copy(self.awg_now),
             awg_next=_copy(self.awg_next_norm),
+            rms_history=tuple(self.rms_history),
         )
 
     def limits_reached(self):
@@ -163,16 +206,23 @@ class LoopEngine:
 
     def start(self):
         """Take the first measurement. Raises FeedbackError."""
-        self.current_output = self.feedback.measure(self.progress)
+        log.info("Loop started: %s", self.params)
+        self._measure()
         self.awg_now = self._read_awg()
 
     def calculate(self):
-        """Work out the next AWG trace from the latest measurement, without applying it."""
+        """Work out the next AWG trace from the latest measurement, without applying it.
+
+        Raises AlgorithmError if the correction algorithm fails or returns bad values."""
         self.awg_now = self._read_awg()
-        correction = self.correction_fn(self.target, self.current_output, self.gain)
-        self.correction_factor = corr.limit_correction(
-            correction, self.params.max_percent_change
-        )
+        try:
+            correction = self.correction_fn(self.target, self.current_output, self.gain)
+            correction = _check_trace(correction, self.num_points, "The correction algorithm")
+        except ValueError as e:
+            raise AlgorithmError(str(e)) from e
+        except Exception as e:
+            raise AlgorithmError("Error in the correction algorithm: {0}".format(e)) from e
+        self.correction_factor = corr.limit_correction(correction, self.params.max_percent_change)
         awg_next = corr.next_awg_trace(
             self.awg_now,
             self.correction_factor,
@@ -183,10 +233,13 @@ class LoopEngine:
             awg_zero_shift=self.params.awg_zero_shift,
         )
         try:
-            awg_next = self.filter_fn(awg_next)
-        except Exception:
+            awg_next = _check_trace(self.filter_fn(awg_next), self.num_points, "The filter")
+        except Exception as e:
             log.exception("Error when applying user-defined filter")
-            self.on_warning("Error when applying user-defined filter\n Ignoring filter", "Filter error")
+            self.on_warning(
+                "Error when applying user-defined filter:\n{0}\n\nIgnoring filter".format(e),
+                "Filter error",
+            )
             # Remove filter to avoid error message every loop
             self.filter_fn = corr.no_filter
         self.awg_next_norm = corr.normalise(awg_next)
@@ -204,17 +257,37 @@ class LoopEngine:
             self.current_output,
         )
 
-    def apply(self):
+    def apply(self, cancel=never_cancel):
         """Write the calculated trace to the AWG and measure the result.
 
-        Raises RuntimeError if the trace is unsafe, FeedbackError if measuring fails."""
+        Raises RuntimeError if the trace is unsafe, WriteCancelled if cancel() became true
+        during the write, AwgWriteError if the AWG readback is wrong, FeedbackError if
+        measuring fails."""
         if not self.is_safe():
             raise RuntimeError("Proposed AWG trace would exceed peak power")
+        log.info(
+            "Writing iteration %i to AWG: gain %.2f, RMS %.4f, peak power %.2f",
+            self.i + 1,
+            self.gain,
+            self.rms_error(),
+            self.peak_power(),
+        )
+        audit_log.info(
+            "Iteration %i AWG trace: %s",
+            self.i + 1,
+            np.array2string(self.awg_next_norm, precision=4, max_line_width=10**6),
+        )
         # On the first pass only, set any AWG samples outside the pulse to zero
-        self.awg.write(self.awg_next_norm, zero_to_end=self.i == 0, progress=self.progress)
+        self.awg.write(
+            self.awg_next_norm, zero_to_end=self.i == 0, progress=self.progress, cancel=cancel
+        )
         log.info("Applied correction for iteration %i", self.i + 1)
-        self.current_output = self.feedback.measure(self.progress)
         self.i += 1
+        self._measure()
+
+    def _measure(self):
+        self.current_output = self.feedback.measure(self.progress)
+        self.rms_history.append(self.rms_error())
 
     def _read_awg(self):
         # Extract the number of points used for this pulse
@@ -228,9 +301,15 @@ class LoopEngine:
 
         approve(engine) -> (Decision, gain): asked before every write to the AWG.
             RECALC recalculates with the returned gain and asks again.
-        should_stop() -> bool: polled before writing, e.g. for a Stop button.
+        should_stop() -> bool: polled before and during writing, e.g. for a Stop button.
         on_update(engine): called whenever there is new data to show.
         """
+        try:
+            return self._run(approve, should_stop, on_update)
+        except AlgorithmError as e:
+            return self._finish(Outcome.ALGORITHM_ERROR, "Quitting loop: {0}".format(e))
+
+    def _run(self, approve, should_stop, on_update):
         while self.should_continue():
             self.calculate()
             on_update(self)
@@ -258,7 +337,13 @@ class LoopEngine:
                 return self._finish(Outcome.STOPPED, "Quitting loop: user stop")
 
             try:
-                self.apply()
+                self.apply(cancel=should_stop)
+            except WriteCancelled as e:
+                return self._finish(Outcome.STOPPED, "Quitting loop: {0}".format(e))
+            except AwgWriteError as e:
+                return self._finish(
+                    Outcome.WRITE_ERROR, "Quitting loop: AWG write failed\n\n{0}".format(e)
+                )
             except FeedbackError as e:
                 return self._finish(
                     Outcome.FEEDBACK_ERROR,
@@ -267,5 +352,8 @@ class LoopEngine:
         return self._finish(Outcome.COMPLETED, "Loop ended")
 
     def _finish(self, outcome, message):
-        log.info(message)
+        if outcome in (Outcome.COMPLETED, Outcome.PAUSED, Outcome.ABORTED):
+            log.info(message)
+        else:
+            log.warning(message)
         return LoopResult(outcome, message)

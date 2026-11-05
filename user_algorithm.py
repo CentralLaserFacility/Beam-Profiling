@@ -35,7 +35,7 @@ def default_correction_calc(target, current, gain):
     with np.errstate(divide="ignore", invalid="ignore"):
         temp = target / current
     # replace any non-finite values in the correction with 1
-    temp[np.isfinite(temp) == False] = 1
+    temp[~np.isfinite(temp)] = 1
     # Apply the gain
     correction_factor = (temp - 1) * gain + 1
     return correction_factor

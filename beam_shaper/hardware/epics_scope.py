@@ -92,12 +92,12 @@ class EpicsFeedback:
         self.num_points = num_points
         self.averages = averages
         self.wait = wait
-        self.time_res = time_resolution_pv.get()
+        self.time_res = time_resolution_pv.get(use_monitor=False)
 
     def measure(self, progress):
         # Check if scope settings have changed. We could deal with this if they have, but for now
         # just stop the loop
-        if self.time_resolution_pv.get() != self.time_res:
+        if self.time_resolution_pv.get(use_monitor=False) != self.time_res:
             raise FeedbackError("Scope time resolution has changed since loop started")
 
         avg = read_average(self.scope_pv, self.averages, self.wait, progress)

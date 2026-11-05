@@ -10,7 +10,7 @@ class Curve:
     # Background and target curves never have a background subtracted
     supports_background = True
 
-    def __init__(self, curve_array=np.array([]), name="unnamed"):
+    def __init__(self, curve_array=(), name="unnamed"):
         """
         Creates a Curve object. The intialiser optionally takes the argument
         curve_array, which is an array specifying the curve. Alternatively
@@ -144,7 +144,7 @@ class Curve:
         return np.interp(ip, im, data)
 
     def _clip_neg(self, data):
-        return np.clip(data, 0, np.amax(data))
+        return np.maximum(data, 0)
 
     def _normalise(self, data):
         if np.amax(np.abs(data)) != 0:
@@ -194,4 +194,6 @@ def load_target(path, num_points):
     curve = TargetCurve(name="Target")
     curve.load(str(path), num_points=num_points, trim_method="resample")
     curve.process(clip=True, norm=True, resample=num_points)
+    if not np.any(curve.get_processed() > 0):
+        raise ValueError("The target shape in {0} is all zero".format(path))
     return curve

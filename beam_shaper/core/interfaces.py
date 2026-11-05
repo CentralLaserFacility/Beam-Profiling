@@ -1,12 +1,20 @@
 """The small interfaces the loop needs from hardware. beam_shaper.hardware implements these."""
 
-from typing import Optional, Protocol
+from typing import Callable, Optional, Protocol
 
 import numpy as np
 
 
 class FeedbackError(Exception):
     """The measured pulse shape couldn't be read."""
+
+
+class AwgWriteError(Exception):
+    """The AWG didn't end up holding the trace that was written. Its state is uncertain."""
+
+
+class WriteCancelled(Exception):
+    """A write was stopped part way. The AWG was returned to the trace it held before."""
 
 
 class Progress(Protocol):
@@ -32,12 +40,25 @@ class NullProgress:
         pass
 
 
+def never_cancel():
+    return False
+
+
 class Awg(Protocol):
     def read_normalised_shape(self) -> np.ndarray:
         """The current AWG trace, scaled so the DAC maximum is 1."""
 
-    def write(self, points: np.ndarray, zero_to_end: bool, progress: Progress) -> None:
-        """Write a normalised trace. zero_to_end also zeroes samples beyond len(points)."""
+    def write(
+        self,
+        points: np.ndarray,
+        zero_to_end: bool,
+        progress: Progress,
+        cancel: Callable[[], bool] = never_cancel,
+    ) -> None:
+        """Write a normalised trace and check the AWG now holds it.
+
+        zero_to_end also zeroes samples beyond len(points). cancel() is polled during
+        the write. Raises WriteCancelled (AWG restored) or AwgWriteError (readback wrong)."""
 
 
 class Feedback(Protocol):

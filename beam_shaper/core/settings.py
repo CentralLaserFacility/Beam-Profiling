@@ -1,5 +1,6 @@
 """Per-run loop settings chosen by the user, and the rules that bound them."""
 
+import math
 from dataclasses import dataclass
 
 import numpy as np
@@ -23,19 +24,24 @@ class LoopSettings:
     save_diag_files: bool
 
 
+def _whole(ratio):
+    """Round down to an integer, but treat floating point error like 101.99999 as 102."""
+    return math.floor(ratio + 1e-9)
+
+
 def num_points(pulse_length, ns_per_point):
     """Number of AWG points that make up a pulse of the given length (ns)."""
-    return int(float(pulse_length / ns_per_point))
+    return _whole(pulse_length / ns_per_point)
 
 
 def coerce_pulse_length(desired_length, ns_per_point):
     """Round a pulse length (ns) down to a whole number of AWG points."""
-    return desired_length - desired_length % ns_per_point
+    return round(_whole(desired_length / ns_per_point) * ns_per_point, 9)
 
 
 def scope_slice_length(pulse_length, time_resolution):
     """Number of scope samples covering the pulse. time_resolution is in seconds."""
-    return int(pulse_length * 1e-9 / time_resolution)
+    return _whole(pulse_length * 1e-9 / time_resolution)
 
 
 # Each coerce_* function raises ValueError if the text isn't a number, and
